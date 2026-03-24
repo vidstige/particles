@@ -13,8 +13,9 @@ fn main() -> io::Result<()> {
     let resolution = Resolution::new(720, 720);
     let mut source_rng = Rng::new(0x1234_5678);
     let mut target_rng = Rng::new(0x8765_4321);
-    let source = Cloud::uniform_cube(1024, &mut source_rng);
-    let target = Cloud::gaussian_sphere(1024, &mut target_rng);
+    let n = 512;
+    let source = Cloud::uniform_cube(n, &mut source_rng);
+    let target = Cloud::gaussian_sphere(n, &mut target_rng);
     let target = match_clouds(&source, &target);
     let view = View::fit(&resolution, &[&source, &target]);
 
