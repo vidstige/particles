@@ -2,11 +2,7 @@ use std::io::{self, Write};
 
 use glam::{Mat4, Vec3};
 use particles::{
-    assignment::match_clouds,
-    cloud::Cloud,
-    render::render_cloud,
-    resolution::Resolution,
-    rng::Rng,
+    assignment::match_clouds, cloud::Cloud, render::render_cloud, resolution::Resolution, rng::Rng,
 };
 
 fn main() -> io::Result<()> {

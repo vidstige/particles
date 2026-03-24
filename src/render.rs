@@ -3,7 +3,12 @@ use glam::{Mat4, Vec3, Vec4};
 use crate::{cloud::Cloud, resolution::Resolution};
 use tiny_skia::{Color, Pixmap, PremultipliedColorU8};
 
-pub fn render_cloud(cloud: &Cloud, resolution: &Resolution, projection: Mat4, view: Mat4) -> Pixmap {
+pub fn render_cloud(
+    cloud: &Cloud,
+    resolution: &Resolution,
+    projection: Mat4,
+    view: Mat4,
+) -> Pixmap {
     let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
     pixmap.fill(Color::from_rgba8(0, 0, 0, 255));
     let view_projection = projection * view;

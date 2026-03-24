@@ -8,9 +8,10 @@ pub fn match_clouds(source: &Cloud, target: &Cloud) -> Cloud {
         .positions
         .iter()
         .flat_map(|from| {
-            target.positions.iter().map(|to| {
-                ((from.distance_squared(*to) * 1_000_000.0).round() as u64).max(1)
-            })
+            target
+                .positions
+                .iter()
+                .map(|to| ((from.distance_squared(*to) * 1_000_000.0).round() as u64).max(1))
         })
         .collect::<Vec<_>>();
 
