@@ -4,21 +4,45 @@ pub fn match_clouds(source: &Cloud, target: &Cloud) -> Cloud {
     assert_eq!(source.positions.len(), target.positions.len());
 
     let n = source.positions.len();
-    let costs = source
+    let mut edges = source
         .positions
         .iter()
-        .flat_map(|from| {
-            target
-                .positions
-                .iter()
-                .map(|to| ((from.distance_squared(*to) * 1_000_000.0).round() as u64).max(1))
+        .enumerate()
+        .flat_map(|(source_index, from)| {
+            target.positions.iter().enumerate().map(move |(target_index, to)| {
+                (from.distance_squared(*to), source_index, target_index)
+            })
         })
         .collect::<Vec<_>>();
+    edges.sort_unstable_by(|left, right| {
+        left.0
+            .total_cmp(&right.0)
+            .then_with(|| left.1.cmp(&right.1))
+            .then_with(|| left.2.cmp(&right.2))
+    });
 
-    let assignment = hungarian::minimize(&costs, n, n);
-    let positions = assignment
+    let mut matched_sources = vec![false; n];
+    let mut matched_targets = vec![false; n];
+    let mut pairs = vec![0; n];
+    let mut count = 0;
+
+    for (_, source_index, target_index) in edges {
+        if matched_sources[source_index] || matched_targets[target_index] {
+            continue;
+        }
+        matched_sources[source_index] = true;
+        matched_targets[target_index] = true;
+        pairs[source_index] = target_index;
+        count += 1;
+        if count == n {
+            break;
+        }
+    }
+    assert_eq!(count, n);
+
+    let positions = pairs
         .into_iter()
-        .map(|column| target.positions[column.expect("square cost matrix")])
+        .map(|index| target.positions[index])
         .collect();
 
     Cloud { positions }
