@@ -5,4 +5,5 @@ edition = "2021"
 
 [dependencies]
 glam = "0.32.1"
+hungarian = "1.1.1"
 tiny-skia = "0.12.0"

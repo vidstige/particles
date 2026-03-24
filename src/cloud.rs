@@ -2,6 +2,7 @@ use glam::Vec3;
 
 use crate::rng::Rng;
 
+#[derive(Clone, Debug)]
 pub struct Cloud {
     pub positions: Vec<Vec3>,
 }
