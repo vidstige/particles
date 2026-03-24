@@ -5,6 +5,34 @@ use particles::{
     assignment::match_clouds, cloud::Cloud, render::render_cloud, resolution::Resolution, rng::Rng,
 };
 
+fn max_radius(clouds: &[&Cloud]) -> f32 {
+    clouds
+        .iter()
+        .flat_map(|cloud| cloud.positions.iter())
+        .map(|point| point.length())
+        .fold(0.0, f32::max)
+}
+
+fn uniform_cube(count: usize, rng: &mut Rng) -> Cloud {
+    let positions = (0..count)
+        .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
+        .collect();
+    Cloud { positions }
+}
+
+fn gaussian_sphere(count: usize, rng: &mut Rng) -> Cloud {
+    let positions = (0..count)
+        .map(|_| {
+            Vec3::new(
+                rng.next_gaussian(),
+                rng.next_gaussian(),
+                rng.next_gaussian(),
+            ) * 0.35
+        })
+        .collect();
+    Cloud { positions }
+}
+
 fn main() -> io::Result<()> {
     let mut output = io::stdout().lock();
     let resolution = Resolution::new(720, 720);
@@ -40,32 +68,4 @@ fn main() -> io::Result<()> {
 
     output.flush()?;
     Ok(())
-}
-
-fn uniform_cube(count: usize, rng: &mut Rng) -> Cloud {
-    let positions = (0..count)
-        .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
-        .collect();
-    Cloud { positions }
-}
-
-fn gaussian_sphere(count: usize, rng: &mut Rng) -> Cloud {
-    let positions = (0..count)
-        .map(|_| {
-            Vec3::new(
-                rng.next_gaussian(),
-                rng.next_gaussian(),
-                rng.next_gaussian(),
-            ) * 0.35
-        })
-        .collect();
-    Cloud { positions }
-}
-
-fn max_radius(clouds: &[&Cloud]) -> f32 {
-    clouds
-        .iter()
-        .flat_map(|cloud| cloud.positions.iter())
-        .map(|point| point.length())
-        .fold(0.0, f32::max)
 }
