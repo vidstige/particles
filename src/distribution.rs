@@ -10,6 +10,31 @@ fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
     }
 }
 
+fn grid_plane_point(axis: usize, resolution: UVec3, size: Vec3, rng: &mut Rng) -> Vec3 {
+    let mut point = Vec3::new(
+        rng.next_f32_in(-size.x * 0.5, size.x * 0.5),
+        rng.next_f32_in(-size.y * 0.5, size.y * 0.5),
+        rng.next_f32_in(-size.z * 0.5, size.z * 0.5),
+    );
+
+    match axis {
+        0 => {
+            let plane = rng.next_index(resolution.x as usize) as u32;
+            point.x = grid_axis_point(plane, resolution.x, size.x);
+        }
+        1 => {
+            let plane = rng.next_index(resolution.y as usize) as u32;
+            point.y = grid_axis_point(plane, resolution.y, size.y);
+        }
+        _ => {
+            let plane = rng.next_index(resolution.z as usize) as u32;
+            point.z = grid_axis_point(plane, resolution.z, size.z);
+        }
+    }
+
+    point
+}
+
 fn sphere_point(radius: f32, z: f32, angle: f32) -> Vec3 {
     let ring = (1.0 - z * z).sqrt() * radius;
     Vec3::new(ring * angle.cos(), ring * angle.sin(), z * radius)
@@ -194,19 +219,9 @@ pub fn icosahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
     )
 }
 
-pub fn grid_3d(resolution: UVec3, size: Vec3) -> Vec<Vec3> {
-    (0..resolution.z)
-        .flat_map(|z| {
-            (0..resolution.y).flat_map(move |y| {
-                (0..resolution.x).map(move |x| {
-                    Vec3::new(
-                        grid_axis_point(x, resolution.x, size.x),
-                        grid_axis_point(y, resolution.y, size.y),
-                        grid_axis_point(z, resolution.z, size.z),
-                    )
-                })
-            })
-        })
+pub fn grid_3d(count: usize, resolution: UVec3, size: Vec3, rng: &mut Rng) -> Vec<Vec3> {
+    (0..count)
+        .map(|_| grid_plane_point(rng.next_index(3), resolution, size, rng))
         .collect()
 }
 
@@ -245,27 +260,26 @@ mod tests {
         })
     }
 
-    #[test]
-    fn grid_3d_spans_requested_resolution_and_size() {
-        let points = grid_3d(UVec3::new(3, 2, 2), Vec3::new(2.0, 4.0, 6.0));
+    fn is_on_grid_plane(coordinate: f32, resolution: u32, size: f32) -> bool {
+        (0..resolution).any(|index| {
+            (coordinate - super::grid_axis_point(index, resolution, size)).abs() < 1e-5
+        })
+    }
 
-        assert_eq!(
-            points,
-            vec![
-                Vec3::new(-1.0, -2.0, -3.0),
-                Vec3::new(0.0, -2.0, -3.0),
-                Vec3::new(1.0, -2.0, -3.0),
-                Vec3::new(-1.0, 2.0, -3.0),
-                Vec3::new(0.0, 2.0, -3.0),
-                Vec3::new(1.0, 2.0, -3.0),
-                Vec3::new(-1.0, -2.0, 3.0),
-                Vec3::new(0.0, -2.0, 3.0),
-                Vec3::new(1.0, -2.0, 3.0),
-                Vec3::new(-1.0, 2.0, 3.0),
-                Vec3::new(0.0, 2.0, 3.0),
-                Vec3::new(1.0, 2.0, 3.0),
-            ]
-        );
+    #[test]
+    fn grid_3d_points_stay_within_bounds_and_on_grid_planes() {
+        let mut rng = Rng::new(0x1234_5678);
+
+        for point in grid_3d(64, UVec3::new(3, 2, 4), Vec3::new(2.0, 4.0, 6.0), &mut rng) {
+            assert!(point.x.abs() <= 1.0);
+            assert!(point.y.abs() <= 2.0);
+            assert!(point.z.abs() <= 3.0);
+            assert!(
+                is_on_grid_plane(point.x, 3, 2.0)
+                    || is_on_grid_plane(point.y, 2, 4.0)
+                    || is_on_grid_plane(point.z, 4, 6.0)
+            );
+        }
     }
 
     #[test]

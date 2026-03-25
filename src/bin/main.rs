@@ -65,7 +65,7 @@ fn main() -> io::Result<()> {
             positions: cube(point_count, 0.9, &mut rng),
         },
         Cloud {
-            positions: grid_3d(UVec3::splat(8), Vec3::splat(1.26)),
+            positions: grid_3d(point_count, UVec3::splat(8), Vec3::splat(1.26), &mut rng),
         },
         Cloud {
             positions: sphere(point_count, 0.95, &mut rng),
