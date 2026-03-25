@@ -47,7 +47,10 @@ pub fn auction_assignment(costs: &[f32], n: usize, epsilon: f32) -> Vec<usize> {
         assignments[bidder] = Some(object);
     }
 
-    assignments.into_iter().map(|assignment| assignment.unwrap()).collect()
+    assignments
+        .into_iter()
+        .map(|assignment| assignment.unwrap())
+        .collect()
 }
 
 #[cfg(test)]
@@ -56,15 +59,8 @@ mod tests {
 
     #[test]
     fn auction_assignment_matches_known_3x3_solution() {
-        let assignment = auction_assignment(
-            &[
-                4.0, 1.0, 3.0,
-                2.0, 0.0, 5.0,
-                3.0, 2.0, 2.0,
-            ],
-            3,
-            0.001,
-        );
+        let assignment =
+            auction_assignment(&[4.0, 1.0, 3.0, 2.0, 0.0, 5.0, 3.0, 2.0, 2.0], 3, 0.001);
 
         assert_eq!(assignment, vec![1, 0, 2]);
     }

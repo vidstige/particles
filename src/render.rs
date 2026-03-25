@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec3, Vec4};
 
-use crate::{cloud::Cloud, resolution::Resolution};
+use crate::resolution::Resolution;
 use tiny_skia::{Color, Pixmap, PremultipliedColorU8};
 
 fn project(point: Vec3, resolution: &Resolution, view_projection: Mat4) -> Option<(u32, u32)> {
@@ -20,7 +20,7 @@ fn project(point: Vec3, resolution: &Resolution, view_projection: Mat4) -> Optio
 }
 
 pub fn render_cloud(
-    cloud: &Cloud,
+    positions: &[Vec3],
     resolution: &Resolution,
     projection: Mat4,
     view: Mat4,
@@ -29,7 +29,7 @@ pub fn render_cloud(
     pixmap.fill(Color::from_rgba8(0, 0, 0, 255));
     let view_projection = projection * view;
 
-    for point in &cloud.positions {
+    for point in positions {
         let Some((x, y)) = project(*point, resolution, view_projection) else {
             continue;
         };
