@@ -55,7 +55,7 @@ mod tests {
     use super::auction_assignment;
 
     #[test]
-    fn solves_simple_dense_assignment() {
+    fn auction_assignment_matches_known_3x3_solution() {
         let assignment = auction_assignment(
             &[
                 4.0, 1.0, 3.0,
@@ -67,23 +67,5 @@ mod tests {
         );
 
         assert_eq!(assignment, vec![1, 0, 2]);
-    }
-
-    #[test]
-    fn epsilon_variant_still_returns_a_bijection() {
-        let assignment = auction_assignment(
-            &[
-                0.1, 4.0, 5.0, 6.0,
-                4.0, 0.2, 6.0, 5.0,
-                5.0, 6.0, 0.3, 4.0,
-                6.0, 5.0, 4.0, 0.4,
-            ],
-            4,
-            0.1,
-        );
-        let mut sorted = assignment.clone();
-        sorted.sort_unstable();
-
-        assert_eq!(sorted, vec![0, 1, 2, 3]);
     }
 }

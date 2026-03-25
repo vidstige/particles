@@ -33,7 +33,7 @@ mod tests {
     use super::Rng;
 
     #[test]
-    fn produces_deterministic_sequence() {
+    fn next_u32_is_stable_for_fixed_seed() {
         let mut rng = Rng::new(0x1234_5678);
         let values = [
             rng.next_u32(),
