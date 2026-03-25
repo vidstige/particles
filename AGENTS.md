@@ -5,6 +5,6 @@ Callee come before callers in a file.
 Test must be useful and test something meaningful. Tests content and names describe the current state of the code.
 
 Committing:
-Each commit should only contain a single step or concern.
+Split separable work into separate commits, with one step or concern per commit.
 Each commit should pass: `cargo test` and `cargo fmt --check`
 Prefix refactoring commit messages with `refactor: `
