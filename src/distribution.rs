@@ -10,6 +10,11 @@ fn grid_radius(count: usize) -> i32 {
     radius
 }
 
+fn sphere_point(radius: f32, z: f32, angle: f32) -> Vec3 {
+    let ring = (1.0 - z * z).sqrt() * radius;
+    Vec3::new(ring * angle.cos(), ring * angle.sin(), z * radius)
+}
+
 pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
     (0..count)
         .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
@@ -24,6 +29,18 @@ pub fn gaussian_sphere(count: usize, rng: &mut Rng) -> Vec<Vec3> {
                 rng.next_gaussian(),
                 rng.next_gaussian(),
             ) * 0.35
+        })
+        .collect()
+}
+
+pub fn sphere(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
+    (0..count)
+        .map(|_| {
+            sphere_point(
+                radius,
+                rng.next_f32_in(-1.0, 1.0),
+                std::f32::consts::TAU * rng.next_f32(),
+            )
         })
         .collect()
 }
@@ -74,7 +91,7 @@ pub fn torus_surface(
 mod tests {
     use glam::Vec3;
 
-    use super::{grid_3d, torus_surface};
+    use super::{grid_3d, sphere, torus_surface};
     use crate::rng::Rng;
 
     #[test]
@@ -103,6 +120,15 @@ mod tests {
             let ring = point.truncate().length();
             let torus_distance = (ring - major_radius).powi(2) + point.z.powi(2);
             assert!((torus_distance - minor_radius.powi(2)).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn sphere_points_stay_on_requested_radius() {
+        let mut rng = Rng::new(0x1234_5678);
+
+        for point in sphere(32, 0.8, &mut rng) {
+            assert!((point.length() - 0.8).abs() < 1e-5);
         }
     }
 }
