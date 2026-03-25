@@ -67,6 +67,49 @@ fn tetrahedron_faces() -> [[usize; 3]; 4] {
     [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]]
 }
 
+fn icosahedron_vertices(radius: f32) -> [Vec3; 12] {
+    let phi = (1.0 + 5.0_f32.sqrt()) * 0.5;
+    [
+        Vec3::new(-1.0, phi, 0.0).normalize() * radius,
+        Vec3::new(1.0, phi, 0.0).normalize() * radius,
+        Vec3::new(-1.0, -phi, 0.0).normalize() * radius,
+        Vec3::new(1.0, -phi, 0.0).normalize() * radius,
+        Vec3::new(0.0, -1.0, phi).normalize() * radius,
+        Vec3::new(0.0, 1.0, phi).normalize() * radius,
+        Vec3::new(0.0, -1.0, -phi).normalize() * radius,
+        Vec3::new(0.0, 1.0, -phi).normalize() * radius,
+        Vec3::new(phi, 0.0, -1.0).normalize() * radius,
+        Vec3::new(phi, 0.0, 1.0).normalize() * radius,
+        Vec3::new(-phi, 0.0, -1.0).normalize() * radius,
+        Vec3::new(-phi, 0.0, 1.0).normalize() * radius,
+    ]
+}
+
+fn icosahedron_faces() -> [[usize; 3]; 20] {
+    [
+        [0, 11, 5],
+        [0, 5, 1],
+        [0, 1, 7],
+        [0, 7, 10],
+        [0, 10, 11],
+        [1, 5, 9],
+        [5, 11, 4],
+        [11, 10, 2],
+        [10, 7, 6],
+        [7, 1, 8],
+        [3, 9, 4],
+        [3, 4, 2],
+        [3, 2, 6],
+        [3, 6, 8],
+        [3, 8, 9],
+        [4, 9, 5],
+        [2, 4, 11],
+        [6, 2, 10],
+        [8, 6, 7],
+        [9, 8, 1],
+    ]
+}
+
 pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
     (0..count)
         .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
@@ -142,6 +185,15 @@ pub fn tetrahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
     )
 }
 
+pub fn icosahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
+    sample_mesh_surface(
+        &icosahedron_vertices(radius),
+        &icosahedron_faces(),
+        count,
+        rng,
+    )
+}
+
 pub fn grid_3d(count: usize, spacing: Vec3) -> Vec<Vec3> {
     let radius = grid_radius(count);
     let mut positions = (-radius..=radius)
@@ -189,8 +241,8 @@ mod tests {
     use glam::Vec3;
 
     use super::{
-        cube, grid_3d, gyroid, gyroid_value, lissajous, sphere, tetrahedron, tetrahedron_faces,
-        tetrahedron_vertices, torus_surface,
+        cube, grid_3d, gyroid, gyroid_value, icosahedron, icosahedron_faces, icosahedron_vertices,
+        lissajous, sphere, tetrahedron, tetrahedron_faces, tetrahedron_vertices, torus_surface,
     };
     use crate::rng::Rng;
 
@@ -278,6 +330,17 @@ mod tests {
         let faces = tetrahedron_faces();
 
         for point in tetrahedron(32, 0.9, &mut rng) {
+            assert!(point_is_on_any_face(point, &vertices, &faces));
+        }
+    }
+
+    #[test]
+    fn icosahedron_points_stay_on_icosahedron_faces() {
+        let mut rng = Rng::new(0x1234_5678);
+        let vertices = icosahedron_vertices(0.95);
+        let faces = icosahedron_faces();
+
+        for point in icosahedron(32, 0.95, &mut rng) {
             assert!(point_is_on_any_face(point, &vertices, &faces));
         }
     }
