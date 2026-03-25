@@ -1,10 +1,12 @@
 mod distribution3;
+mod uniform_cube;
 
 use glam::{UVec3, Vec3};
 
 use crate::rng::Rng;
 
 pub use distribution3::{collect, Distribution3};
+pub use uniform_cube::UniformCube;
 
 fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
     if resolution <= 1 {
@@ -98,21 +100,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-#[derive(Debug)]
-pub struct UniformCube;
-
-impl UniformCube {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl Distribution3 for UniformCube {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
-        Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE
-    }
 }
 
 #[derive(Debug)]
@@ -339,7 +326,7 @@ mod tests {
     use super::{
         collect, gyroid_value, icosahedron_faces, icosahedron_vertices, tetrahedron_faces,
         tetrahedron_vertices, Cube, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere,
-        Tetrahedron, TorusSurface, UniformCube,
+        Tetrahedron, TorusSurface,
     };
     use crate::rng::Rng;
 
@@ -466,16 +453,6 @@ mod tests {
 
         for point in collect(&mut Gaussian::new(0.35), 32, &mut rng) {
             assert!(point.is_finite());
-        }
-    }
-
-    #[test]
-    fn uniform_cube_samples_stay_within_unit_cube() {
-        let mut rng = Rng::new(0x1234_5678);
-
-        for point in collect(&mut UniformCube::new(), 32, &mut rng) {
-            assert!(point.max_element() <= 1.0);
-            assert!(point.min_element() >= -1.0);
         }
     }
 }
