@@ -5,6 +5,7 @@ mod grid3d;
 mod gyroid;
 mod lissajous;
 mod sphere;
+mod tetrahedron;
 mod torus_surface;
 mod uniform_cube;
 
@@ -19,6 +20,7 @@ pub use grid3d::Grid3d;
 pub use gyroid::Gyroid;
 pub use lissajous::Lissajous;
 pub use sphere::Sphere;
+pub use tetrahedron::Tetrahedron;
 pub use torus_surface::TorusSurface;
 pub use uniform_cube::UniformCube;
 
@@ -50,19 +52,6 @@ fn triangle_point(a: Vec3, b: Vec3, c: Vec3, rng: &mut Rng) -> Vec3 {
     let u = rng.next_f32().sqrt();
     let v = rng.next_f32();
     a * (1.0 - u) + b * (u * (1.0 - v)) + c * (u * v)
-}
-
-fn tetrahedron_vertices(radius: f32) -> [Vec3; 4] {
-    [
-        Vec3::new(1.0, 1.0, 1.0).normalize() * radius,
-        Vec3::new(-1.0, -1.0, 1.0).normalize() * radius,
-        Vec3::new(-1.0, 1.0, -1.0).normalize() * radius,
-        Vec3::new(1.0, -1.0, -1.0).normalize() * radius,
-    ]
-}
-
-fn tetrahedron_faces() -> [[usize; 3]; 4] {
-    [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]]
 }
 
 fn icosahedron_vertices(radius: f32) -> [Vec3; 12] {
@@ -109,25 +98,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
 }
 
 #[derive(Debug)]
-pub struct Tetrahedron {
-    radius: f32,
-}
-
-impl Tetrahedron {
-    pub fn new(radius: f32) -> Self {
-        Self { radius }
-    }
-}
-
-impl Distribution3 for Tetrahedron {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
-        let vertices = tetrahedron_vertices(self.radius);
-        let [a, b, c] = tetrahedron_faces()[rng.next_index(4)];
-        triangle_point(vertices[a], vertices[b], vertices[c], rng)
-    }
-}
-
-#[derive(Debug)]
 pub struct Icosahedron {
     radius: f32,
 }
@@ -150,10 +120,7 @@ impl Distribution3 for Icosahedron {
 mod tests {
     use glam::Vec3;
 
-    use super::{
-        collect, icosahedron_faces, icosahedron_vertices, tetrahedron_faces, tetrahedron_vertices,
-        Icosahedron, Tetrahedron,
-    };
+    use super::{collect, icosahedron_faces, icosahedron_vertices, Icosahedron};
     use crate::rng::Rng;
 
     fn point_is_on_any_face(point: Vec3, vertices: &[Vec3], faces: &[[usize; 3]]) -> bool {
@@ -163,17 +130,6 @@ mod tests {
                 .normalize();
             normal.dot(point - vertices[*a]).abs() < 1e-5
         })
-    }
-
-    #[test]
-    fn tetrahedron_points_stay_on_tetrahedron_faces() {
-        let mut rng = Rng::new(0x1234_5678);
-        let vertices = tetrahedron_vertices(0.9);
-        let faces = tetrahedron_faces();
-
-        for point in collect(&mut Tetrahedron::new(0.9), 32, &mut rng) {
-            assert!(point_is_on_any_face(point, &vertices, &faces));
-        }
     }
 
     #[test]
