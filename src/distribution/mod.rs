@@ -1,5 +1,6 @@
 mod distribution3;
 mod gaussian;
+mod gyroid;
 mod lissajous;
 mod sphere;
 mod uniform_cube;
@@ -10,6 +11,7 @@ use crate::rng::Rng;
 
 pub use distribution3::{collect, Distribution3};
 pub use gaussian::Gaussian;
+pub use gyroid::Gyroid;
 pub use lissajous::Lissajous;
 pub use sphere::Sphere;
 pub use uniform_cube::UniformCube;
@@ -106,33 +108,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-#[derive(Debug)]
-pub struct Gyroid {
-    scale: f32,
-    thickness: f32,
-}
-
-impl Gyroid {
-    pub fn new(scale: f32, thickness: f32) -> Self {
-        Self { scale, thickness }
-    }
-}
-
-impl Distribution3 for Gyroid {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
-        loop {
-            let point = Vec3::new(
-                rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
-                rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
-                rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
-            );
-            if gyroid_value(point).abs() <= self.thickness {
-                return point * (self.scale / std::f32::consts::PI);
-            }
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -263,8 +238,8 @@ mod tests {
     use glam::{UVec3, Vec3};
 
     use super::{
-        collect, gyroid_value, icosahedron_faces, icosahedron_vertices, tetrahedron_faces,
-        tetrahedron_vertices, Cube, Grid3d, Gyroid, Icosahedron, Tetrahedron, TorusSurface,
+        collect, icosahedron_faces, icosahedron_vertices, tetrahedron_faces, tetrahedron_vertices,
+        Cube, Grid3d, Icosahedron, Tetrahedron, TorusSurface,
     };
     use crate::rng::Rng;
 
@@ -317,16 +292,6 @@ mod tests {
             let ring = point.truncate().length();
             let torus_distance = (ring - major_radius).powi(2) + point.z.powi(2);
             assert!((torus_distance - minor_radius.powi(2)).abs() < 1e-5);
-        }
-    }
-
-    #[test]
-    fn gyroid_points_stay_close_to_implicit_surface() {
-        let mut rng = Rng::new(0x1234_5678);
-
-        for point in collect(&mut Gyroid::new(1.2, 0.08), 32, &mut rng) {
-            let unscaled = point * (std::f32::consts::PI / 1.2);
-            assert!(gyroid_value(unscaled).abs() <= 0.08);
         }
     }
 
