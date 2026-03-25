@@ -4,8 +4,8 @@ use glam::{Mat4, UVec3, Vec3};
 use particles::{
     assignment::auction_assignment,
     distribution::{
-        cube, gaussian_sphere, grid_3d, gyroid, icosahedron, lissajous, sphere, tetrahedron,
-        torus_surface, uniform_cube,
+        collect, Cube, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere, Tetrahedron,
+        TorusSurface, UniformCube,
     },
     render::{default_theme, render_cloud},
     resolution::Resolution,
@@ -60,34 +60,38 @@ fn main() -> io::Result<()> {
     let theme = default_theme();
     let mut clouds = vec![
         Cloud {
-            positions: uniform_cube(point_count, &mut rng),
+            positions: collect(&mut UniformCube::new(), point_count, &mut rng),
         },
         Cloud {
-            positions: cube(point_count, 0.9, &mut rng),
+            positions: collect(&mut Cube::new(0.9), point_count, &mut rng),
         },
         Cloud {
-            positions: grid_3d(point_count, UVec3::splat(8), Vec3::splat(1.26), &mut rng),
+            positions: collect(
+                &mut Grid3d::new(UVec3::splat(8), Vec3::splat(1.26)),
+                point_count,
+                &mut rng,
+            ),
         },
         Cloud {
-            positions: sphere(point_count, 0.95, &mut rng),
+            positions: collect(&mut Sphere::new(0.95), point_count, &mut rng),
         },
         Cloud {
-            positions: tetrahedron(point_count, 0.95, &mut rng),
+            positions: collect(&mut Tetrahedron::new(0.95), point_count, &mut rng),
         },
         Cloud {
-            positions: torus_surface(point_count, 0.75, 0.25, &mut rng),
+            positions: collect(&mut TorusSurface::new(0.75, 0.25), point_count, &mut rng),
         },
         Cloud {
-            positions: icosahedron(point_count, 0.95, &mut rng),
+            positions: collect(&mut Icosahedron::new(0.95), point_count, &mut rng),
         },
         Cloud {
-            positions: lissajous(point_count, 0.9),
+            positions: collect(&mut Lissajous::new(point_count, 0.9), point_count, &mut rng),
         },
         Cloud {
-            positions: gyroid(point_count, 1.1, 0.08, &mut rng),
+            positions: collect(&mut Gyroid::new(1.1, 0.08), point_count, &mut rng),
         },
         Cloud {
-            positions: gaussian_sphere(point_count, &mut rng),
+            positions: collect(&mut Gaussian::new(0.35), point_count, &mut rng),
         },
     ];
 

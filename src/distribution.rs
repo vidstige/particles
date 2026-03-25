@@ -10,31 +10,6 @@ fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
     }
 }
 
-fn grid_plane_point(axis: usize, resolution: UVec3, size: Vec3, rng: &mut Rng) -> Vec3 {
-    let mut point = Vec3::new(
-        rng.next_f32_in(-size.x * 0.5, size.x * 0.5),
-        rng.next_f32_in(-size.y * 0.5, size.y * 0.5),
-        rng.next_f32_in(-size.z * 0.5, size.z * 0.5),
-    );
-
-    match axis {
-        0 => {
-            let plane = rng.next_index(resolution.x as usize) as u32;
-            point.x = grid_axis_point(plane, resolution.x, size.x);
-        }
-        1 => {
-            let plane = rng.next_index(resolution.y as usize) as u32;
-            point.y = grid_axis_point(plane, resolution.y, size.y);
-        }
-        _ => {
-            let plane = rng.next_index(resolution.z as usize) as u32;
-            point.z = grid_axis_point(plane, resolution.z, size.z);
-        }
-    }
-
-    point
-}
-
 fn sphere_point(radius: f32, z: f32, angle: f32) -> Vec3 {
     let ring = (1.0 - z * z).sqrt() * radius;
     Vec3::new(ring * angle.cos(), ring * angle.sin(), z * radius)
@@ -63,20 +38,6 @@ fn triangle_point(a: Vec3, b: Vec3, c: Vec3, rng: &mut Rng) -> Vec3 {
     let u = rng.next_f32().sqrt();
     let v = rng.next_f32();
     a * (1.0 - u) + b * (u * (1.0 - v)) + c * (u * v)
-}
-
-fn sample_mesh_surface(
-    vertices: &[Vec3],
-    faces: &[[usize; 3]],
-    count: usize,
-    rng: &mut Rng,
-) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| {
-            let [a, b, c] = faces[rng.next_index(faces.len())];
-            triangle_point(vertices[a], vertices[b], vertices[c], rng)
-        })
-        .collect()
 }
 
 fn tetrahedron_vertices(radius: f32) -> [Vec3; 4] {
@@ -135,110 +96,244 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
     ]
 }
 
-pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
-        .collect()
+pub trait Distribution3 {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3;
 }
 
-pub fn gaussian_sphere(count: usize, rng: &mut Rng) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| {
-            Vec3::new(
-                rng.next_gaussian(),
-                rng.next_gaussian(),
-                rng.next_gaussian(),
-            ) * 0.35
-        })
-        .collect()
+pub fn collect<D: Distribution3>(distribution: &mut D, count: usize, rng: &mut Rng) -> Vec<Vec3> {
+    (0..count).map(|_| distribution.sample(rng)).collect()
 }
 
-pub fn sphere(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| {
-            sphere_point(
-                radius,
-                rng.next_f32_in(-1.0, 1.0),
-                std::f32::consts::TAU * rng.next_f32(),
-            )
-        })
-        .collect()
+#[derive(Debug)]
+pub struct UniformCube;
+
+impl UniformCube {
+    pub fn new() -> Self {
+        Self
+    }
 }
 
-pub fn lissajous(count: usize, scale: f32) -> Vec<Vec3> {
-    (0..count)
-        .map(|index| lissajous_point(index as f32 * std::f32::consts::TAU / count as f32, scale))
-        .collect()
+impl Distribution3 for UniformCube {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE
+    }
 }
 
-pub fn gyroid(count: usize, scale: f32, thickness: f32, rng: &mut Rng) -> Vec<Vec3> {
-    let mut positions = Vec::with_capacity(count);
+#[derive(Debug)]
+pub struct Gaussian {
+    scale: f32,
+}
 
-    while positions.len() < count {
-        let point = Vec3::new(
-            rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
-            rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
-            rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
-        );
-        if gyroid_value(point).abs() <= thickness {
-            positions.push(point * (scale / std::f32::consts::PI));
+impl Gaussian {
+    pub fn new(scale: f32) -> Self {
+        Self { scale }
+    }
+}
+
+impl Distribution3 for Gaussian {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        Vec3::new(
+            rng.next_gaussian(),
+            rng.next_gaussian(),
+            rng.next_gaussian(),
+        ) * self.scale
+    }
+}
+
+#[derive(Debug)]
+pub struct Sphere {
+    radius: f32,
+}
+
+impl Sphere {
+    pub fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+}
+
+impl Distribution3 for Sphere {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        sphere_point(
+            self.radius,
+            rng.next_f32_in(-1.0, 1.0),
+            std::f32::consts::TAU * rng.next_f32(),
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct Lissajous {
+    phase: f32,
+    scale: f32,
+    step: f32,
+}
+
+impl Lissajous {
+    pub fn new(count: usize, scale: f32) -> Self {
+        Self {
+            phase: 0.0,
+            scale,
+            step: std::f32::consts::TAU / count as f32,
         }
     }
-
-    positions
 }
 
-pub fn cube(count: usize, half_extent: f32, rng: &mut Rng) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| {
-            cube_face_point(
-                half_extent,
-                rng.next_index(6),
-                rng.next_f32_in(-half_extent, half_extent),
-                rng.next_f32_in(-half_extent, half_extent),
-            )
-        })
-        .collect()
+impl Distribution3 for Lissajous {
+    fn sample(&mut self, _rng: &mut Rng) -> Vec3 {
+        let point = lissajous_point(self.phase, self.scale);
+        self.phase += self.step;
+        point
+    }
 }
 
-pub fn tetrahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
-    sample_mesh_surface(
-        &tetrahedron_vertices(radius),
-        &tetrahedron_faces(),
-        count,
-        rng,
-    )
+#[derive(Debug)]
+pub struct Gyroid {
+    scale: f32,
+    thickness: f32,
 }
 
-pub fn icosahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
-    sample_mesh_surface(
-        &icosahedron_vertices(radius),
-        &icosahedron_faces(),
-        count,
-        rng,
-    )
+impl Gyroid {
+    pub fn new(scale: f32, thickness: f32) -> Self {
+        Self { scale, thickness }
+    }
 }
 
-pub fn grid_3d(count: usize, resolution: UVec3, size: Vec3, rng: &mut Rng) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| grid_plane_point(rng.next_index(3), resolution, size, rng))
-        .collect()
+impl Distribution3 for Gyroid {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        loop {
+            let point = Vec3::new(
+                rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
+                rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
+                rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
+            );
+            if gyroid_value(point).abs() <= self.thickness {
+                return point * (self.scale / std::f32::consts::PI);
+            }
+        }
+    }
 }
 
-pub fn torus_surface(
-    count: usize,
+#[derive(Debug)]
+pub struct Cube {
+    half_extent: f32,
+}
+
+impl Cube {
+    pub fn new(half_extent: f32) -> Self {
+        Self { half_extent }
+    }
+}
+
+impl Distribution3 for Cube {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        cube_face_point(
+            self.half_extent,
+            rng.next_index(6),
+            rng.next_f32_in(-self.half_extent, self.half_extent),
+            rng.next_f32_in(-self.half_extent, self.half_extent),
+        )
+    }
+}
+
+#[derive(Debug)]
+pub struct Tetrahedron {
+    radius: f32,
+}
+
+impl Tetrahedron {
+    pub fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+}
+
+impl Distribution3 for Tetrahedron {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        let vertices = tetrahedron_vertices(self.radius);
+        let [a, b, c] = tetrahedron_faces()[rng.next_index(4)];
+        triangle_point(vertices[a], vertices[b], vertices[c], rng)
+    }
+}
+
+#[derive(Debug)]
+pub struct Icosahedron {
+    radius: f32,
+}
+
+impl Icosahedron {
+    pub fn new(radius: f32) -> Self {
+        Self { radius }
+    }
+}
+
+impl Distribution3 for Icosahedron {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        let vertices = icosahedron_vertices(self.radius);
+        let [a, b, c] = icosahedron_faces()[rng.next_index(20)];
+        triangle_point(vertices[a], vertices[b], vertices[c], rng)
+    }
+}
+
+#[derive(Debug)]
+pub struct Grid3d {
+    resolution: UVec3,
+    size: Vec3,
+}
+
+impl Grid3d {
+    pub fn new(resolution: UVec3, size: Vec3) -> Self {
+        Self { resolution, size }
+    }
+}
+
+impl Distribution3 for Grid3d {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        let mut point = Vec3::new(
+            rng.next_f32_in(-self.size.x * 0.5, self.size.x * 0.5),
+            rng.next_f32_in(-self.size.y * 0.5, self.size.y * 0.5),
+            rng.next_f32_in(-self.size.z * 0.5, self.size.z * 0.5),
+        );
+
+        match rng.next_index(3) {
+            0 => {
+                let plane = rng.next_index(self.resolution.x as usize) as u32;
+                point.x = grid_axis_point(plane, self.resolution.x, self.size.x);
+            }
+            1 => {
+                let plane = rng.next_index(self.resolution.y as usize) as u32;
+                point.y = grid_axis_point(plane, self.resolution.y, self.size.y);
+            }
+            _ => {
+                let plane = rng.next_index(self.resolution.z as usize) as u32;
+                point.z = grid_axis_point(plane, self.resolution.z, self.size.z);
+            }
+        }
+
+        point
+    }
+}
+
+#[derive(Debug)]
+pub struct TorusSurface {
     major_radius: f32,
     minor_radius: f32,
-    rng: &mut Rng,
-) -> Vec<Vec3> {
-    (0..count)
-        .map(|_| {
-            let u = std::f32::consts::TAU * rng.next_f32();
-            let v = std::f32::consts::TAU * rng.next_f32();
-            let ring = major_radius + minor_radius * v.cos();
-            Vec3::new(ring * u.cos(), ring * u.sin(), minor_radius * v.sin())
-        })
-        .collect()
+}
+
+impl TorusSurface {
+    pub fn new(major_radius: f32, minor_radius: f32) -> Self {
+        Self {
+            major_radius,
+            minor_radius,
+        }
+    }
+}
+
+impl Distribution3 for TorusSurface {
+    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
+        let u = std::f32::consts::TAU * rng.next_f32();
+        let v = std::f32::consts::TAU * rng.next_f32();
+        let ring = self.major_radius + self.minor_radius * v.cos();
+        Vec3::new(ring * u.cos(), ring * u.sin(), self.minor_radius * v.sin())
+    }
 }
 
 #[cfg(test)]
@@ -246,8 +341,9 @@ mod tests {
     use glam::{UVec3, Vec3};
 
     use super::{
-        cube, grid_3d, gyroid, gyroid_value, icosahedron, icosahedron_faces, icosahedron_vertices,
-        lissajous, sphere, tetrahedron, tetrahedron_faces, tetrahedron_vertices, torus_surface,
+        collect, gyroid_value, icosahedron_faces, icosahedron_vertices, tetrahedron_faces,
+        tetrahedron_vertices, Cube, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere,
+        Tetrahedron, TorusSurface, UniformCube,
     };
     use crate::rng::Rng;
 
@@ -270,7 +366,11 @@ mod tests {
     fn grid_3d_points_stay_within_bounds_and_on_grid_planes() {
         let mut rng = Rng::new(0x1234_5678);
 
-        for point in grid_3d(64, UVec3::new(3, 2, 4), Vec3::new(2.0, 4.0, 6.0), &mut rng) {
+        for point in collect(
+            &mut Grid3d::new(UVec3::new(3, 2, 4), Vec3::new(2.0, 4.0, 6.0)),
+            64,
+            &mut rng,
+        ) {
             assert!(point.x.abs() <= 1.0);
             assert!(point.y.abs() <= 2.0);
             assert!(point.z.abs() <= 3.0);
@@ -288,7 +388,11 @@ mod tests {
         let major_radius = 0.8;
         let minor_radius = 0.25;
 
-        for point in torus_surface(32, major_radius, minor_radius, &mut rng) {
+        for point in collect(
+            &mut TorusSurface::new(major_radius, minor_radius),
+            32,
+            &mut rng,
+        ) {
             let ring = point.truncate().length();
             let torus_distance = (ring - major_radius).powi(2) + point.z.powi(2);
             assert!((torus_distance - minor_radius.powi(2)).abs() < 1e-5);
@@ -299,14 +403,18 @@ mod tests {
     fn sphere_points_stay_on_requested_radius() {
         let mut rng = Rng::new(0x1234_5678);
 
-        for point in sphere(32, 0.8, &mut rng) {
+        for point in collect(&mut Sphere::new(0.8), 32, &mut rng) {
             assert!((point.length() - 0.8).abs() < 1e-5);
         }
     }
 
     #[test]
     fn lissajous_is_antipodal_half_a_cycle_later() {
-        let points = lissajous(16, 0.75);
+        let points = collect(
+            &mut Lissajous::new(16, 0.75),
+            16,
+            &mut Rng::new(0x1234_5678),
+        );
 
         for index in 0..8 {
             assert!((points[index] + points[index + 8]).length() < 1e-5);
@@ -317,7 +425,7 @@ mod tests {
     fn gyroid_points_stay_close_to_implicit_surface() {
         let mut rng = Rng::new(0x1234_5678);
 
-        for point in gyroid(32, 1.2, 0.08, &mut rng) {
+        for point in collect(&mut Gyroid::new(1.2, 0.08), 32, &mut rng) {
             let unscaled = point * (std::f32::consts::PI / 1.2);
             assert!(gyroid_value(unscaled).abs() <= 0.08);
         }
@@ -327,7 +435,7 @@ mod tests {
     fn cube_points_stay_on_cube_surface() {
         let mut rng = Rng::new(0x1234_5678);
 
-        for point in cube(32, 0.7, &mut rng) {
+        for point in collect(&mut Cube::new(0.7), 32, &mut rng) {
             assert!(point.max_element() <= 0.7);
             assert!(point.min_element() >= -0.7);
             assert!((point.abs().max_element() - 0.7).abs() < 1e-5);
@@ -340,7 +448,7 @@ mod tests {
         let vertices = tetrahedron_vertices(0.9);
         let faces = tetrahedron_faces();
 
-        for point in tetrahedron(32, 0.9, &mut rng) {
+        for point in collect(&mut Tetrahedron::new(0.9), 32, &mut rng) {
             assert!(point_is_on_any_face(point, &vertices, &faces));
         }
     }
@@ -351,8 +459,27 @@ mod tests {
         let vertices = icosahedron_vertices(0.95);
         let faces = icosahedron_faces();
 
-        for point in icosahedron(32, 0.95, &mut rng) {
+        for point in collect(&mut Icosahedron::new(0.95), 32, &mut rng) {
             assert!(point_is_on_any_face(point, &vertices, &faces));
+        }
+    }
+
+    #[test]
+    fn gaussian_samples_stay_finite() {
+        let mut rng = Rng::new(0x1234_5678);
+
+        for point in collect(&mut Gaussian::new(0.35), 32, &mut rng) {
+            assert!(point.is_finite());
+        }
+    }
+
+    #[test]
+    fn uniform_cube_samples_stay_within_unit_cube() {
+        let mut rng = Rng::new(0x1234_5678);
+
+        for point in collect(&mut UniformCube::new(), 32, &mut rng) {
+            assert!(point.max_element() <= 1.0);
+            assert!(point.min_element() >= -1.0);
         }
     }
 }
