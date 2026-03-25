@@ -19,6 +19,10 @@ fn lissajous_point(t: f32, scale: f32) -> Vec3 {
     Vec3::new((3.0 * t).sin(), (5.0 * t).sin(), (7.0 * t).sin()) * scale
 }
 
+fn gyroid_value(point: Vec3) -> f32 {
+    point.x.sin() * point.y.cos() + point.y.sin() * point.z.cos() + point.z.sin() * point.x.cos()
+}
+
 pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
     (0..count)
         .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
@@ -53,6 +57,23 @@ pub fn lissajous(count: usize, scale: f32) -> Vec<Vec3> {
     (0..count)
         .map(|index| lissajous_point(index as f32 * std::f32::consts::TAU / count as f32, scale))
         .collect()
+}
+
+pub fn gyroid(count: usize, scale: f32, thickness: f32, rng: &mut Rng) -> Vec<Vec3> {
+    let mut positions = Vec::with_capacity(count);
+
+    while positions.len() < count {
+        let point = Vec3::new(
+            rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
+            rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
+            rng.next_f32_in(-std::f32::consts::PI, std::f32::consts::PI),
+        );
+        if gyroid_value(point).abs() <= thickness {
+            positions.push(point * (scale / std::f32::consts::PI));
+        }
+    }
+
+    positions
 }
 
 pub fn grid_3d(count: usize, spacing: Vec3) -> Vec<Vec3> {
@@ -101,7 +122,7 @@ pub fn torus_surface(
 mod tests {
     use glam::Vec3;
 
-    use super::{grid_3d, lissajous, sphere, torus_surface};
+    use super::{grid_3d, gyroid, gyroid_value, lissajous, sphere, torus_surface};
     use crate::rng::Rng;
 
     #[test]
@@ -148,6 +169,16 @@ mod tests {
 
         for index in 0..8 {
             assert!((points[index] + points[index + 8]).length() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn gyroid_points_stay_close_to_implicit_surface() {
+        let mut rng = Rng::new(0x1234_5678);
+
+        for point in gyroid(32, 1.2, 0.08, &mut rng) {
+            let unscaled = point * (std::f32::consts::PI / 1.2);
+            assert!(gyroid_value(unscaled).abs() <= 0.08);
         }
     }
 }
