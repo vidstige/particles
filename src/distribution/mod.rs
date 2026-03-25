@@ -1,3 +1,4 @@
+mod cube;
 mod distribution3;
 mod gaussian;
 mod gyroid;
@@ -9,6 +10,7 @@ use glam::{UVec3, Vec3};
 
 use crate::rng::Rng;
 
+pub use cube::Cube;
 pub use distribution3::{collect, Distribution3};
 pub use gaussian::Gaussian;
 pub use gyroid::Gyroid;
@@ -108,28 +110,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-#[derive(Debug)]
-pub struct Cube {
-    half_extent: f32,
-}
-
-impl Cube {
-    pub fn new(half_extent: f32) -> Self {
-        Self { half_extent }
-    }
-}
-
-impl Distribution3 for Cube {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
-        cube_face_point(
-            self.half_extent,
-            rng.next_index(6),
-            rng.next_f32_in(-self.half_extent, self.half_extent),
-            rng.next_f32_in(-self.half_extent, self.half_extent),
-        )
-    }
 }
 
 #[derive(Debug)]
@@ -239,7 +219,7 @@ mod tests {
 
     use super::{
         collect, icosahedron_faces, icosahedron_vertices, tetrahedron_faces, tetrahedron_vertices,
-        Cube, Grid3d, Icosahedron, Tetrahedron, TorusSurface,
+        Grid3d, Icosahedron, Tetrahedron, TorusSurface,
     };
     use crate::rng::Rng;
 
@@ -292,17 +272,6 @@ mod tests {
             let ring = point.truncate().length();
             let torus_distance = (ring - major_radius).powi(2) + point.z.powi(2);
             assert!((torus_distance - minor_radius.powi(2)).abs() < 1e-5);
-        }
-    }
-
-    #[test]
-    fn cube_points_stay_on_cube_surface() {
-        let mut rng = Rng::new(0x1234_5678);
-
-        for point in collect(&mut Cube::new(0.7), 32, &mut rng) {
-            assert!(point.max_element() <= 0.7);
-            assert!(point.min_element() >= -0.7);
-            assert!((point.abs().max_element() - 0.7).abs() < 1e-5);
         }
     }
 
