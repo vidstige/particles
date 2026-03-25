@@ -3,7 +3,10 @@ use std::io::{self, Write};
 use glam::{Mat4, Vec3};
 use particles::{
     assignment::auction_assignment,
-    distribution::{gaussian_sphere, grid_3d, torus_surface, uniform_cube},
+    distribution::{
+        cube, gaussian_sphere, grid_3d, gyroid, icosahedron, lissajous, sphere, tetrahedron,
+        torus_surface, uniform_cube,
+    },
     render::render_cloud,
     resolution::Resolution,
     rng::Rng,
@@ -59,10 +62,28 @@ fn main() -> io::Result<()> {
             positions: uniform_cube(point_count, &mut rng),
         },
         Cloud {
+            positions: cube(point_count, 0.9, &mut rng),
+        },
+        Cloud {
             positions: grid_3d(point_count, Vec3::splat(0.18)),
         },
         Cloud {
+            positions: sphere(point_count, 0.95, &mut rng),
+        },
+        Cloud {
+            positions: tetrahedron(point_count, 0.95, &mut rng),
+        },
+        Cloud {
             positions: torus_surface(point_count, 0.75, 0.25, &mut rng),
+        },
+        Cloud {
+            positions: icosahedron(point_count, 0.95, &mut rng),
+        },
+        Cloud {
+            positions: lissajous(point_count, 0.9),
+        },
+        Cloud {
+            positions: gyroid(point_count, 1.1, 0.08, &mut rng),
         },
         Cloud {
             positions: gaussian_sphere(point_count, &mut rng),
