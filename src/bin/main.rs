@@ -12,11 +12,6 @@ use particles::{
     rng::Rng,
 };
 
-#[derive(Debug)]
-struct Cloud {
-    positions: Vec<Vec3>,
-}
-
 fn cost_matrix(source: &[Vec3], target: &[Vec3]) -> Vec<f32> {
     source
         .iter()
@@ -24,21 +19,18 @@ fn cost_matrix(source: &[Vec3], target: &[Vec3]) -> Vec<f32> {
         .collect()
 }
 
-fn interpolate_cloud(source: &Cloud, target: &Cloud, t: f32) -> Cloud {
-    Cloud {
-        positions: source
-            .positions
-            .iter()
-            .zip(&target.positions)
-            .map(|(from, to)| from.lerp(*to, t))
-            .collect(),
-    }
+fn interpolate_cloud(source: &[Vec3], target: &[Vec3], t: f32) -> Vec<Vec3> {
+    source
+        .iter()
+        .zip(target)
+        .map(|(from, to)| from.lerp(*to, t))
+        .collect()
 }
 
-fn max_radius(clouds: &[Cloud]) -> f32 {
+fn max_radius(clouds: &[Vec<Vec3>]) -> f32 {
     clouds
         .iter()
-        .flat_map(|cloud| cloud.positions.iter())
+        .flat_map(|cloud| cloud.iter())
         .map(|point| point.length())
         .fold(0.0, f32::max)
 }
@@ -59,48 +51,24 @@ fn main() -> io::Result<()> {
     let frame_count = 32;
     let theme = default_theme();
     let mut clouds = vec![
-        Cloud {
-            positions: collect(&mut UniformCube::new(), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut Cube::new(0.9), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(
-                &mut Grid3d::new(UVec3::splat(8), Vec3::splat(1.26)),
-                point_count,
-                &mut rng,
-            ),
-        },
-        Cloud {
-            positions: collect(&mut Sphere::new(0.95), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut Tetrahedron::new(0.95), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut TorusSurface::new(0.75, 0.25), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut Icosahedron::new(0.95), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut Lissajous::new(point_count, 0.9), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut Gyroid::new(1.1, 0.08), point_count, &mut rng),
-        },
-        Cloud {
-            positions: collect(&mut Gaussian::new(0.35), point_count, &mut rng),
-        },
+        collect(&mut UniformCube::new(), point_count, &mut rng),
+        collect(&mut Cube::new(0.9), point_count, &mut rng),
+        collect(
+            &mut Grid3d::new(UVec3::splat(8), Vec3::splat(1.26)),
+            point_count,
+            &mut rng,
+        ),
+        collect(&mut Sphere::new(0.95), point_count, &mut rng),
+        collect(&mut Tetrahedron::new(0.95), point_count, &mut rng),
+        collect(&mut TorusSurface::new(0.75, 0.25), point_count, &mut rng),
+        collect(&mut Icosahedron::new(0.95), point_count, &mut rng),
+        collect(&mut Lissajous::new(point_count, 0.9), point_count, &mut rng),
+        collect(&mut Gyroid::new(1.1, 0.08), point_count, &mut rng),
+        collect(&mut Gaussian::new(0.35), point_count, &mut rng),
     ];
 
     for index in 1..clouds.len() {
-        clouds[index].positions = match_positions(
-            &clouds[index - 1].positions,
-            &clouds[index].positions,
-            epsilon,
-        );
+        clouds[index] = match_positions(&clouds[index - 1], &clouds[index], epsilon);
     }
 
     let radius = max_radius(&clouds).max(1.0);
@@ -120,7 +88,7 @@ fn main() -> io::Result<()> {
         for frame in usize::from(index > 0)..frame_count {
             let t = frame as f32 / (frame_count as f32 - 1.0);
             let cloud = interpolate_cloud(source, target, t);
-            let pixmap = render_cloud(&cloud.positions, &resolution, projection, view, &theme);
+            let pixmap = render_cloud(&cloud, &resolution, projection, view, &theme);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }
