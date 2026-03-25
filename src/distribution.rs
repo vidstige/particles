@@ -15,6 +15,10 @@ fn sphere_point(radius: f32, z: f32, angle: f32) -> Vec3 {
     Vec3::new(ring * angle.cos(), ring * angle.sin(), z * radius)
 }
 
+fn lissajous_point(t: f32, scale: f32) -> Vec3 {
+    Vec3::new((3.0 * t).sin(), (5.0 * t).sin(), (7.0 * t).sin()) * scale
+}
+
 pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
     (0..count)
         .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
@@ -42,6 +46,12 @@ pub fn sphere(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
                 std::f32::consts::TAU * rng.next_f32(),
             )
         })
+        .collect()
+}
+
+pub fn lissajous(count: usize, scale: f32) -> Vec<Vec3> {
+    (0..count)
+        .map(|index| lissajous_point(index as f32 * std::f32::consts::TAU / count as f32, scale))
         .collect()
 }
 
@@ -91,7 +101,7 @@ pub fn torus_surface(
 mod tests {
     use glam::Vec3;
 
-    use super::{grid_3d, sphere, torus_surface};
+    use super::{grid_3d, lissajous, sphere, torus_surface};
     use crate::rng::Rng;
 
     #[test]
@@ -129,6 +139,15 @@ mod tests {
 
         for point in sphere(32, 0.8, &mut rng) {
             assert!((point.length() - 0.8).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn lissajous_is_antipodal_half_a_cycle_later() {
+        let points = lissajous(16, 0.75);
+
+        for index in 0..8 {
+            assert!((points[index] + points[index + 8]).length() < 1e-5);
         }
     }
 }
