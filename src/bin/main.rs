@@ -4,8 +4,8 @@ use glam::{Mat4, UVec3, Vec3};
 use particles::{
     assignment::auction_assignment,
     distribution::{
-        collect, Cube, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere, Tetrahedron,
-        TorusSurface, UniformCube,
+        collect, Add, Cube, Distribution3, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous,
+        Sphere, Tetrahedron, TorusSurface, UniformCube,
     },
     render::{default_theme, render_cloud},
     resolution::Resolution,
@@ -42,29 +42,70 @@ fn match_positions(source: &[Vec3], target: &[Vec3], epsilon: f32) -> Vec<Vec3> 
     assignment.into_iter().map(|index| target[index]).collect()
 }
 
+fn noisy<D: Distribution3>(distribution: D, scale: f32) -> Add<D, Gaussian> {
+    Add::new(distribution, Gaussian::new(scale))
+}
+
 fn main() -> io::Result<()> {
     let mut output = io::stdout().lock();
     let resolution = Resolution::new(720, 720);
     let mut rng = Rng::new(0x1234_5678);
     let point_count = 512;
+    let noise_scale = 0.03;
     let epsilon = 0.01;
     let frame_count = 32;
     let theme = default_theme();
     let mut clouds = vec![
-        collect(&mut UniformCube::new(), point_count, &mut rng),
-        collect(&mut Cube::new(0.9), point_count, &mut rng),
         collect(
-            &mut Grid3d::new(UVec3::splat(8), Vec3::splat(1.26)),
+            &mut noisy(UniformCube::new(), noise_scale),
             point_count,
             &mut rng,
         ),
-        collect(&mut Sphere::new(0.95), point_count, &mut rng),
-        collect(&mut Tetrahedron::new(0.95), point_count, &mut rng),
-        collect(&mut TorusSurface::new(0.75, 0.25), point_count, &mut rng),
-        collect(&mut Icosahedron::new(0.95), point_count, &mut rng),
-        collect(&mut Lissajous::new(point_count, 0.9), point_count, &mut rng),
-        collect(&mut Gyroid::new(1.1, 0.08), point_count, &mut rng),
-        collect(&mut Gaussian::new(0.35), point_count, &mut rng),
+        collect(
+            &mut noisy(Cube::new(0.9), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Grid3d::new(UVec3::splat(8), Vec3::splat(1.26)), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Sphere::new(0.95), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Tetrahedron::new(0.95), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(TorusSurface::new(0.75, 0.25), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Icosahedron::new(0.95), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Lissajous::new(point_count, 0.9), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Gyroid::new(1.1, 0.08), noise_scale),
+            point_count,
+            &mut rng,
+        ),
+        collect(
+            &mut noisy(Gaussian::new(0.35), noise_scale),
+            point_count,
+            &mut rng,
+        ),
     ];
 
     for index in 1..clouds.len() {
