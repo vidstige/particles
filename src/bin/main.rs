@@ -1,6 +1,6 @@
 use std::io::{self, Write};
 
-use glam::{Mat4, Vec3};
+use glam::{Mat4, UVec3, Vec3};
 use particles::{
     assignment::auction_assignment,
     distribution::{
@@ -65,7 +65,7 @@ fn main() -> io::Result<()> {
             positions: cube(point_count, 0.9, &mut rng),
         },
         Cloud {
-            positions: grid_3d(point_count, Vec3::splat(0.18)),
+            positions: grid_3d(UVec3::splat(8), Vec3::splat(1.26)),
         },
         Cloud {
             positions: sphere(point_count, 0.95, &mut rng),

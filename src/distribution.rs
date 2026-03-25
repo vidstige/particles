@@ -1,13 +1,13 @@
-use glam::Vec3;
+use glam::{UVec3, Vec3};
 
 use crate::rng::Rng;
 
-fn grid_radius(count: usize) -> i32 {
-    let mut radius = 0;
-    while ((2 * radius + 1) as usize).pow(3) < count {
-        radius += 1;
+fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
+    if resolution <= 1 {
+        0.0
+    } else {
+        index as f32 * size / (resolution - 1) as f32 - size * 0.5
     }
-    radius
 }
 
 fn sphere_point(radius: f32, z: f32, angle: f32) -> Vec3 {
@@ -194,30 +194,20 @@ pub fn icosahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
     )
 }
 
-pub fn grid_3d(count: usize, spacing: Vec3) -> Vec<Vec3> {
-    let radius = grid_radius(count);
-    let mut positions = (-radius..=radius)
+pub fn grid_3d(resolution: UVec3, size: Vec3) -> Vec<Vec3> {
+    (0..resolution.z)
         .flat_map(|z| {
-            (-radius..=radius).flat_map(move |y| {
-                (-radius..=radius).map(move |x| {
+            (0..resolution.y).flat_map(move |y| {
+                (0..resolution.x).map(move |x| {
                     Vec3::new(
-                        x as f32 * spacing.x,
-                        y as f32 * spacing.y,
-                        z as f32 * spacing.z,
+                        grid_axis_point(x, resolution.x, size.x),
+                        grid_axis_point(y, resolution.y, size.y),
+                        grid_axis_point(z, resolution.z, size.z),
                     )
                 })
             })
         })
-        .collect::<Vec<_>>();
-    positions.sort_by(|a, b| {
-        a.length_squared()
-            .total_cmp(&b.length_squared())
-            .then(a.x.total_cmp(&b.x))
-            .then(a.y.total_cmp(&b.y))
-            .then(a.z.total_cmp(&b.z))
-    });
-    positions.truncate(count);
-    positions
+        .collect()
 }
 
 pub fn torus_surface(
@@ -238,7 +228,7 @@ pub fn torus_surface(
 
 #[cfg(test)]
 mod tests {
-    use glam::Vec3;
+    use glam::{UVec3, Vec3};
 
     use super::{
         cube, grid_3d, gyroid, gyroid_value, icosahedron, icosahedron_faces, icosahedron_vertices,
@@ -256,17 +246,24 @@ mod tests {
     }
 
     #[test]
-    fn grid_3d_returns_centered_points_first() {
-        let points = grid_3d(5, Vec3::new(2.0, 4.0, 6.0));
+    fn grid_3d_spans_requested_resolution_and_size() {
+        let points = grid_3d(UVec3::new(3, 2, 2), Vec3::new(2.0, 4.0, 6.0));
 
         assert_eq!(
             points,
             vec![
-                Vec3::new(0.0, 0.0, 0.0),
-                Vec3::new(-2.0, 0.0, 0.0),
-                Vec3::new(2.0, 0.0, 0.0),
-                Vec3::new(0.0, -4.0, 0.0),
-                Vec3::new(0.0, 4.0, 0.0),
+                Vec3::new(-1.0, -2.0, -3.0),
+                Vec3::new(0.0, -2.0, -3.0),
+                Vec3::new(1.0, -2.0, -3.0),
+                Vec3::new(-1.0, 2.0, -3.0),
+                Vec3::new(0.0, 2.0, -3.0),
+                Vec3::new(1.0, 2.0, -3.0),
+                Vec3::new(-1.0, -2.0, 3.0),
+                Vec3::new(0.0, -2.0, 3.0),
+                Vec3::new(1.0, -2.0, 3.0),
+                Vec3::new(-1.0, 2.0, 3.0),
+                Vec3::new(0.0, 2.0, 3.0),
+                Vec3::new(1.0, 2.0, 3.0),
             ]
         );
     }
