@@ -86,8 +86,8 @@ fn main() -> io::Result<()> {
         };
         let pixmap = render_cloud(&cloud, &resolution, projection, view);
         output.write_all(pixmap.data())?;
+        output.flush()?;
     }
 
-    output.flush()?;
     Ok(())
 }
