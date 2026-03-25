@@ -1,5 +1,6 @@
 mod distribution3;
 mod gaussian;
+mod sphere;
 mod uniform_cube;
 
 use glam::{UVec3, Vec3};
@@ -8,6 +9,7 @@ use crate::rng::Rng;
 
 pub use distribution3::{collect, Distribution3};
 pub use gaussian::Gaussian;
+pub use sphere::Sphere;
 pub use uniform_cube::UniformCube;
 
 fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
@@ -102,27 +104,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-#[derive(Debug)]
-pub struct Sphere {
-    radius: f32,
-}
-
-impl Sphere {
-    pub fn new(radius: f32) -> Self {
-        Self { radius }
-    }
-}
-
-impl Distribution3 for Sphere {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
-        sphere_point(
-            self.radius,
-            rng.next_f32_in(-1.0, 1.0),
-            std::f32::consts::TAU * rng.next_f32(),
-        )
-    }
 }
 
 #[derive(Debug)]
@@ -306,7 +287,7 @@ mod tests {
 
     use super::{
         collect, gyroid_value, icosahedron_faces, icosahedron_vertices, tetrahedron_faces,
-        tetrahedron_vertices, Cube, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere, Tetrahedron,
+        tetrahedron_vertices, Cube, Grid3d, Gyroid, Icosahedron, Lissajous, Tetrahedron,
         TorusSurface,
     };
     use crate::rng::Rng;
@@ -360,15 +341,6 @@ mod tests {
             let ring = point.truncate().length();
             let torus_distance = (ring - major_radius).powi(2) + point.z.powi(2);
             assert!((torus_distance - minor_radius.powi(2)).abs() < 1e-5);
-        }
-    }
-
-    #[test]
-    fn sphere_points_stay_on_requested_radius() {
-        let mut rng = Rng::new(0x1234_5678);
-
-        for point in collect(&mut Sphere::new(0.8), 32, &mut rng) {
-            assert!((point.length() - 0.8).abs() < 1e-5);
         }
     }
 
