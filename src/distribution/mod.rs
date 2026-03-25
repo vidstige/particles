@@ -1,5 +1,6 @@
 mod distribution3;
 mod gaussian;
+mod lissajous;
 mod sphere;
 mod uniform_cube;
 
@@ -9,6 +10,7 @@ use crate::rng::Rng;
 
 pub use distribution3::{collect, Distribution3};
 pub use gaussian::Gaussian;
+pub use lissajous::Lissajous;
 pub use sphere::Sphere;
 pub use uniform_cube::UniformCube;
 
@@ -104,31 +106,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-#[derive(Debug)]
-pub struct Lissajous {
-    phase: f32,
-    scale: f32,
-    step: f32,
-}
-
-impl Lissajous {
-    pub fn new(count: usize, scale: f32) -> Self {
-        Self {
-            phase: 0.0,
-            scale,
-            step: std::f32::consts::TAU / count as f32,
-        }
-    }
-}
-
-impl Distribution3 for Lissajous {
-    fn sample(&mut self, _rng: &mut Rng) -> Vec3 {
-        let point = lissajous_point(self.phase, self.scale);
-        self.phase += self.step;
-        point
-    }
 }
 
 #[derive(Debug)]
@@ -287,8 +264,7 @@ mod tests {
 
     use super::{
         collect, gyroid_value, icosahedron_faces, icosahedron_vertices, tetrahedron_faces,
-        tetrahedron_vertices, Cube, Grid3d, Gyroid, Icosahedron, Lissajous, Tetrahedron,
-        TorusSurface,
+        tetrahedron_vertices, Cube, Grid3d, Gyroid, Icosahedron, Tetrahedron, TorusSurface,
     };
     use crate::rng::Rng;
 
@@ -341,19 +317,6 @@ mod tests {
             let ring = point.truncate().length();
             let torus_distance = (ring - major_radius).powi(2) + point.z.powi(2);
             assert!((torus_distance - minor_radius.powi(2)).abs() < 1e-5);
-        }
-    }
-
-    #[test]
-    fn lissajous_is_antipodal_half_a_cycle_later() {
-        let points = collect(
-            &mut Lissajous::new(16, 0.75),
-            16,
-            &mut Rng::new(0x1234_5678),
-        );
-
-        for index in 0..8 {
-            assert!((points[index] + points[index + 8]).length() < 1e-5);
         }
     }
 
