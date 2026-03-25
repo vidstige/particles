@@ -34,6 +34,39 @@ fn cube_face_point(half_extent: f32, face: usize, u: f32, v: f32) -> Vec3 {
     }
 }
 
+fn triangle_point(a: Vec3, b: Vec3, c: Vec3, rng: &mut Rng) -> Vec3 {
+    let u = rng.next_f32().sqrt();
+    let v = rng.next_f32();
+    a * (1.0 - u) + b * (u * (1.0 - v)) + c * (u * v)
+}
+
+fn sample_mesh_surface(
+    vertices: &[Vec3],
+    faces: &[[usize; 3]],
+    count: usize,
+    rng: &mut Rng,
+) -> Vec<Vec3> {
+    (0..count)
+        .map(|_| {
+            let [a, b, c] = faces[rng.next_index(faces.len())];
+            triangle_point(vertices[a], vertices[b], vertices[c], rng)
+        })
+        .collect()
+}
+
+fn tetrahedron_vertices(radius: f32) -> [Vec3; 4] {
+    [
+        Vec3::new(1.0, 1.0, 1.0).normalize() * radius,
+        Vec3::new(-1.0, -1.0, 1.0).normalize() * radius,
+        Vec3::new(-1.0, 1.0, -1.0).normalize() * radius,
+        Vec3::new(1.0, -1.0, -1.0).normalize() * radius,
+    ]
+}
+
+fn tetrahedron_faces() -> [[usize; 3]; 4] {
+    [[0, 1, 2], [0, 3, 1], [0, 2, 3], [1, 3, 2]]
+}
+
 pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
     (0..count)
         .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
@@ -100,6 +133,15 @@ pub fn cube(count: usize, half_extent: f32, rng: &mut Rng) -> Vec<Vec3> {
         .collect()
 }
 
+pub fn tetrahedron(count: usize, radius: f32, rng: &mut Rng) -> Vec<Vec3> {
+    sample_mesh_surface(
+        &tetrahedron_vertices(radius),
+        &tetrahedron_faces(),
+        count,
+        rng,
+    )
+}
+
 pub fn grid_3d(count: usize, spacing: Vec3) -> Vec<Vec3> {
     let radius = grid_radius(count);
     let mut positions = (-radius..=radius)
@@ -146,8 +188,20 @@ pub fn torus_surface(
 mod tests {
     use glam::Vec3;
 
-    use super::{cube, grid_3d, gyroid, gyroid_value, lissajous, sphere, torus_surface};
+    use super::{
+        cube, grid_3d, gyroid, gyroid_value, lissajous, sphere, tetrahedron, tetrahedron_faces,
+        tetrahedron_vertices, torus_surface,
+    };
     use crate::rng::Rng;
+
+    fn point_is_on_any_face(point: Vec3, vertices: &[Vec3], faces: &[[usize; 3]]) -> bool {
+        faces.iter().any(|[a, b, c]| {
+            let normal = (vertices[*b] - vertices[*a])
+                .cross(vertices[*c] - vertices[*a])
+                .normalize();
+            normal.dot(point - vertices[*a]).abs() < 1e-5
+        })
+    }
 
     #[test]
     fn grid_3d_returns_centered_points_first() {
@@ -214,6 +268,17 @@ mod tests {
             assert!(point.max_element() <= 0.7);
             assert!(point.min_element() >= -0.7);
             assert!((point.abs().max_element() - 0.7).abs() < 1e-5);
+        }
+    }
+
+    #[test]
+    fn tetrahedron_points_stay_on_tetrahedron_faces() {
+        let mut rng = Rng::new(0x1234_5678);
+        let vertices = tetrahedron_vertices(0.9);
+        let faces = tetrahedron_faces();
+
+        for point in tetrahedron(32, 0.9, &mut rng) {
+            assert!(point_is_on_any_face(point, &vertices, &faces));
         }
     }
 }
