@@ -1,3 +1,5 @@
+mod add;
+mod constant;
 mod cube;
 mod distribution3;
 mod gaussian;
@@ -14,6 +16,8 @@ use glam::Vec3;
 
 use crate::rng::Rng;
 
+pub use add::Add;
+pub use constant::Constant;
 pub use cube::Cube;
 pub use distribution3::{collect, Distribution3};
 pub use gaussian::Gaussian;
