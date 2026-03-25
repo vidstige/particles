@@ -1,4 +1,5 @@
 mod distribution3;
+mod gaussian;
 mod uniform_cube;
 
 use glam::{UVec3, Vec3};
@@ -6,6 +7,7 @@ use glam::{UVec3, Vec3};
 use crate::rng::Rng;
 
 pub use distribution3::{collect, Distribution3};
+pub use gaussian::Gaussian;
 pub use uniform_cube::UniformCube;
 
 fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
@@ -100,27 +102,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-#[derive(Debug)]
-pub struct Gaussian {
-    scale: f32,
-}
-
-impl Gaussian {
-    pub fn new(scale: f32) -> Self {
-        Self { scale }
-    }
-}
-
-impl Distribution3 for Gaussian {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3 {
-        Vec3::new(
-            rng.next_gaussian(),
-            rng.next_gaussian(),
-            rng.next_gaussian(),
-        ) * self.scale
-    }
 }
 
 #[derive(Debug)]
@@ -325,8 +306,8 @@ mod tests {
 
     use super::{
         collect, gyroid_value, icosahedron_faces, icosahedron_vertices, tetrahedron_faces,
-        tetrahedron_vertices, Cube, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere,
-        Tetrahedron, TorusSurface,
+        tetrahedron_vertices, Cube, Grid3d, Gyroid, Icosahedron, Lissajous, Sphere, Tetrahedron,
+        TorusSurface,
     };
     use crate::rng::Rng;
 
@@ -444,15 +425,6 @@ mod tests {
 
         for point in collect(&mut Icosahedron::new(0.95), 32, &mut rng) {
             assert!(point_is_on_any_face(point, &vertices, &faces));
-        }
-    }
-
-    #[test]
-    fn gaussian_samples_stay_finite() {
-        let mut rng = Rng::new(0x1234_5678);
-
-        for point in collect(&mut Gaussian::new(0.35), 32, &mut rng) {
-            assert!(point.is_finite());
         }
     }
 }
