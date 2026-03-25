@@ -3,6 +3,19 @@ use glam::{Mat4, Vec3, Vec4};
 use crate::resolution::Resolution;
 use tiny_skia::{Color, Pixmap, PremultipliedColorU8};
 
+#[derive(Clone, Copy, Debug)]
+pub struct Theme {
+    pub background: Color,
+    pub foreground: PremultipliedColorU8,
+}
+
+pub fn default_theme() -> Theme {
+    Theme {
+        background: Color::from_rgba8(14, 14, 18, 255),
+        foreground: PremultipliedColorU8::from_rgba(214, 92, 255, 255).unwrap(),
+    }
+}
+
 fn project(point: Vec3, resolution: &Resolution, view_projection: Mat4) -> Option<(u32, u32)> {
     let clip = view_projection * Vec4::new(point.x, point.y, point.z, 1.0);
     if clip.w <= 0.0 {
@@ -24,9 +37,10 @@ pub fn render_cloud(
     resolution: &Resolution,
     projection: Mat4,
     view: Mat4,
+    theme: &Theme,
 ) -> Pixmap {
     let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
-    pixmap.fill(Color::from_rgba8(0, 0, 0, 255));
+    pixmap.fill(theme.background);
     let view_projection = projection * view;
 
     for point in positions {
@@ -34,7 +48,7 @@ pub fn render_cloud(
             continue;
         };
         let index = y as usize * resolution.width as usize + x as usize;
-        pixmap.pixels_mut()[index] = PremultipliedColorU8::from_rgba(255, 255, 255, 255).unwrap();
+        pixmap.pixels_mut()[index] = theme.foreground;
     }
 
     pixmap

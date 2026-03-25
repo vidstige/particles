@@ -7,7 +7,7 @@ use particles::{
         cube, gaussian_sphere, grid_3d, gyroid, icosahedron, lissajous, sphere, tetrahedron,
         torus_surface, uniform_cube,
     },
-    render::render_cloud,
+    render::{default_theme, render_cloud},
     resolution::Resolution,
     rng::Rng,
 };
@@ -57,6 +57,7 @@ fn main() -> io::Result<()> {
     let point_count = 512;
     let epsilon = 0.01;
     let frame_count = 32;
+    let theme = default_theme();
     let mut clouds = vec![
         Cloud {
             positions: uniform_cube(point_count, &mut rng),
@@ -115,7 +116,7 @@ fn main() -> io::Result<()> {
         for frame in usize::from(index > 0)..frame_count {
             let t = frame as f32 / (frame_count as f32 - 1.0);
             let cloud = interpolate_cloud(source, target, t);
-            let pixmap = render_cloud(&cloud.positions, &resolution, projection, view);
+            let pixmap = render_cloud(&cloud.positions, &resolution, projection, view, &theme);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }
