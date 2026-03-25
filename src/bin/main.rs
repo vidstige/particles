@@ -73,8 +73,9 @@ fn main() -> io::Result<()> {
         eye.z + radius * 2.0,
     );
 
-    for frame in 0..90 {
-        let t = frame as f32 / 89.0;
+    let frame_count = 256;
+    for frame in 0..frame_count {
+        let t = frame as f32 / (frame_count as f32 - 1.0);
         let cloud = Cloud {
             positions: source
                 .positions
