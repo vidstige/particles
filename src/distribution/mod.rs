@@ -1,6 +1,10 @@
+mod distribution3;
+
 use glam::{UVec3, Vec3};
 
 use crate::rng::Rng;
+
+pub use distribution3::{collect, Distribution3};
 
 fn grid_axis_point(index: u32, resolution: u32, size: f32) -> f32 {
     if resolution <= 1 {
@@ -94,14 +98,6 @@ fn icosahedron_faces() -> [[usize; 3]; 20] {
         [8, 6, 7],
         [9, 8, 1],
     ]
-}
-
-pub trait Distribution3 {
-    fn sample(&mut self, rng: &mut Rng) -> Vec3;
-}
-
-pub fn collect<D: Distribution3>(distribution: &mut D, count: usize, rng: &mut Rng) -> Vec<Vec3> {
-    (0..count).map(|_| distribution.sample(rng)).collect()
 }
 
 #[derive(Debug)]
