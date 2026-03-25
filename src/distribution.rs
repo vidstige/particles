@@ -23,6 +23,17 @@ fn gyroid_value(point: Vec3) -> f32 {
     point.x.sin() * point.y.cos() + point.y.sin() * point.z.cos() + point.z.sin() * point.x.cos()
 }
 
+fn cube_face_point(half_extent: f32, face: usize, u: f32, v: f32) -> Vec3 {
+    match face {
+        0 => Vec3::new(-half_extent, u, v),
+        1 => Vec3::new(half_extent, u, v),
+        2 => Vec3::new(u, -half_extent, v),
+        3 => Vec3::new(u, half_extent, v),
+        4 => Vec3::new(u, v, -half_extent),
+        _ => Vec3::new(u, v, half_extent),
+    }
+}
+
 pub fn uniform_cube(count: usize, rng: &mut Rng) -> Vec<Vec3> {
     (0..count)
         .map(|_| Vec3::new(rng.next_f32(), rng.next_f32(), rng.next_f32()) * 2.0 - Vec3::ONE)
@@ -76,6 +87,19 @@ pub fn gyroid(count: usize, scale: f32, thickness: f32, rng: &mut Rng) -> Vec<Ve
     positions
 }
 
+pub fn cube(count: usize, half_extent: f32, rng: &mut Rng) -> Vec<Vec3> {
+    (0..count)
+        .map(|_| {
+            cube_face_point(
+                half_extent,
+                rng.next_index(6),
+                rng.next_f32_in(-half_extent, half_extent),
+                rng.next_f32_in(-half_extent, half_extent),
+            )
+        })
+        .collect()
+}
+
 pub fn grid_3d(count: usize, spacing: Vec3) -> Vec<Vec3> {
     let radius = grid_radius(count);
     let mut positions = (-radius..=radius)
@@ -122,7 +146,7 @@ pub fn torus_surface(
 mod tests {
     use glam::Vec3;
 
-    use super::{grid_3d, gyroid, gyroid_value, lissajous, sphere, torus_surface};
+    use super::{cube, grid_3d, gyroid, gyroid_value, lissajous, sphere, torus_surface};
     use crate::rng::Rng;
 
     #[test]
@@ -179,6 +203,17 @@ mod tests {
         for point in gyroid(32, 1.2, 0.08, &mut rng) {
             let unscaled = point * (std::f32::consts::PI / 1.2);
             assert!(gyroid_value(unscaled).abs() <= 0.08);
+        }
+    }
+
+    #[test]
+    fn cube_points_stay_on_cube_surface() {
+        let mut rng = Rng::new(0x1234_5678);
+
+        for point in cube(32, 0.7, &mut rng) {
+            assert!(point.max_element() <= 0.7);
+            assert!(point.min_element() >= -0.7);
+            assert!((point.abs().max_element() - 0.7).abs() < 1e-5);
         }
     }
 }
