@@ -1,5 +1,5 @@
 #!/bin/sh
-RESOLUTION=${RESOLUTION:-720x720}
+RESOLUTION=${RESOLUTION:-512x288}
 FPS=${FPS:-30}
 if [[ $1 == *.gif ]]; then
     VF=-vf "fps=$FPS,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse"

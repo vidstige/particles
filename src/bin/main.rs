@@ -95,7 +95,7 @@ fn noisy<D: Distribution3>(distribution: D, scale: f32) -> Add<D, Gaussian> {
 
 fn main() -> io::Result<()> {
     let mut output = io::stdout().lock();
-    let resolution = Resolution::new(720, 720);
+    let resolution = Resolution::new(512, 288);
     let mut rng = Rng::new(0x1234_5678);
     let point_count = 1024;
     let noise_scale = 0.03;

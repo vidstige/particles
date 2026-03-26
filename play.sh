@@ -1,5 +1,5 @@
 #!/bin/sh
-RESOLUTION=${RESOLUTION:-720x720}
+RESOLUTION=${RESOLUTION:-512x288}
 
 if [ $# -eq 0 ]; then
     exec ffplay -v warning -f rawvideo -pixel_format rgb32 -framerate 30 -video_size "$RESOLUTION" -i -
