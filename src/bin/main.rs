@@ -3,6 +3,7 @@ use std::io::{self, Write};
 use glam::{Mat4, UVec3, Vec3};
 use particles::{
     assignment::auction_assignment,
+    cubic_hermite3::CubicHermite3,
     distribution::{
         collect, Add, Cube, Distribution3, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous,
         Sphere, Tetrahedron, TorusSurface, UniformCube,
@@ -19,11 +20,50 @@ fn cost_matrix(source: &[Vec3], target: &[Vec3]) -> Vec<f32> {
         .collect()
 }
 
-fn interpolate_cloud(source: &[Vec3], target: &[Vec3], t: f32) -> Vec<Vec3> {
+fn interpolate_cloud(curves: &[CubicHermite3], t: f32) -> Vec<Vec3> {
+    curves.iter().map(|curve| curve.sample(t)).collect()
+}
+
+fn tangents(clouds: &[Vec<Vec3>], index: usize) -> Vec<Vec3> {
+    let current = &clouds[index];
+
+    match (
+        index.checked_sub(1).map(|prev| &clouds[prev]),
+        clouds.get(index + 1),
+    ) {
+        (Some(previous), Some(next)) => previous
+            .iter()
+            .zip(next)
+            .map(|(previous, next)| (*next - *previous) * 0.5)
+            .collect(),
+        (None, Some(next)) => current
+            .iter()
+            .zip(next)
+            .map(|(current, next)| *next - *current)
+            .collect(),
+        (Some(previous), None) => previous
+            .iter()
+            .zip(current)
+            .map(|(previous, current)| *current - *previous)
+            .collect(),
+        (None, None) => vec![Vec3::ZERO; current.len()],
+    }
+}
+
+fn curves(
+    source: &[Vec3],
+    source_tangents: &[Vec3],
+    target: &[Vec3],
+    target_tangents: &[Vec3],
+) -> Vec<CubicHermite3> {
     source
         .iter()
+        .zip(source_tangents)
         .zip(target)
-        .map(|(from, to)| from.lerp(*to, t))
+        .zip(target_tangents)
+        .map(|(((source, source_tangent), target), target_tangent)| {
+            CubicHermite3::new(*source, *source_tangent, *target, *target_tangent)
+        })
         .collect()
 }
 
@@ -111,6 +151,9 @@ fn main() -> io::Result<()> {
     for index in 1..clouds.len() {
         clouds[index] = match_positions(&clouds[index - 1], &clouds[index], epsilon);
     }
+    let tangents: Vec<_> = (0..clouds.len())
+        .map(|index| tangents(&clouds, index))
+        .collect();
 
     let radius = max_radius(&clouds).max(1.0);
     let eye = Vec3::new(0.0, 0.0, radius * 3.5);
@@ -125,10 +168,11 @@ fn main() -> io::Result<()> {
     for (index, pair) in clouds.windows(2).enumerate() {
         let source = &pair[0];
         let target = &pair[1];
+        let segment = curves(source, &tangents[index], target, &tangents[index + 1]);
 
         for frame in usize::from(index > 0)..frame_count {
-            let t = frame as f32 / frame_count as f32;
-            let cloud = interpolate_cloud(source, target, t);
+            let t = frame as f32 / (frame_count - 1) as f32;
+            let cloud = interpolate_cloud(&segment, t);
             let pixmap = render_cloud(&cloud, &resolution, projection, view, &theme);
             output.write_all(pixmap.data())?;
             output.flush()?;
