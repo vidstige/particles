@@ -190,7 +190,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         .collect();
 
     let radius = max_radius(&clouds).max(1.0);
-    let eye = Vec3::new(0.0, 0.0, radius * 3.5);
+    let eye = Vec3::new(0.0, 0.0, radius * 2.0);
     let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
     let projection = Mat4::perspective_rh_gl(
         50.0_f32.to_radians(),
