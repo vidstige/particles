@@ -1,5 +1,6 @@
 use std::{
     env,
+    error::Error,
     io::{self, Write},
 };
 
@@ -100,26 +101,25 @@ fn default_resolution() -> Resolution {
     Resolution::new(512, 288)
 }
 
-fn resolution() -> io::Result<Resolution> {
+fn resolution() -> Result<Resolution, Box<dyn Error>> {
     let resolution = match env::var("RESOLUTION") {
-        Ok(value) => value
-            .parse()
-            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error)),
-        Err(env::VarError::NotPresent) => Ok(default_resolution()),
-        Err(error) => Err(io::Error::new(io::ErrorKind::InvalidInput, error)),
-    }?;
+        Ok(value) => value.parse::<Resolution>()?,
+        Err(env::VarError::NotPresent) => default_resolution(),
+        Err(error) => return Err(error.into()),
+    };
 
     if resolution.area() == 0 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
             "RESOLUTION must have non-zero area",
-        ));
+        )
+        .into());
     }
 
     Ok(resolution)
 }
 
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let mut rng = Rng::new(0x1234_5678);
