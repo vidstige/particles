@@ -24,6 +24,13 @@ fn interpolate_cloud(curves: &[CubicHermite3], t: f32) -> Vec<Vec3> {
     curves.iter().map(|curve| curve.sample(t)).collect()
 }
 
+fn linger(t: f32, power: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    let toward_start = t.powf(power);
+    let toward_end = (1.0 - t).powf(power);
+    toward_start / (toward_start + toward_end)
+}
+
 fn tangents(clouds: &[Vec<Vec3>], index: usize) -> Vec<Vec3> {
     let current = &clouds[index];
 
@@ -94,6 +101,7 @@ fn main() -> io::Result<()> {
     let noise_scale = 0.03;
     let epsilon = 0.1;
     let segment_frames = 32;
+    let linger_power = 2.5;
     let theme = default_theme();
     let mut clouds = vec![
         collect(
@@ -171,7 +179,8 @@ fn main() -> io::Result<()> {
         let segment = curves(source, &tangents[index], target, &tangents[index + 1]);
 
         for frame in 0..segment_frames {
-            let t = frame as f32 / segment_frames as f32;
+            let phase = frame as f32 / segment_frames as f32;
+            let t = linger(phase, linger_power);
             let cloud = interpolate_cloud(&segment, t);
             let pixmap = render_cloud(&cloud, &resolution, projection, view, &theme);
             output.write_all(pixmap.data())?;
@@ -180,4 +189,18 @@ fn main() -> io::Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::linger;
+
+    #[test]
+    fn linger_slows_near_the_endpoints() {
+        assert_eq!(linger(0.0, 2.5), 0.0);
+        assert_eq!(linger(1.0, 2.5), 1.0);
+        assert_eq!(linger(0.5, 2.5), 0.5);
+        assert!(linger(0.25, 2.5) < 0.25);
+        assert!(linger(0.75, 2.5) > 0.75);
+    }
 }
