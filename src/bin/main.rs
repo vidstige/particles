@@ -90,9 +90,9 @@ fn main() -> io::Result<()> {
     let mut output = io::stdout().lock();
     let resolution = Resolution::new(720, 720);
     let mut rng = Rng::new(0x1234_5678);
-    let point_count = 512;
+    let point_count = 1024;
     let noise_scale = 0.03;
-    let epsilon = 0.01;
+    let epsilon = 0.1;
     let frame_count = 32;
     let theme = default_theme();
     let mut clouds = vec![
