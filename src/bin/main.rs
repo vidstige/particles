@@ -93,7 +93,7 @@ fn main() -> io::Result<()> {
     let point_count = 1024;
     let noise_scale = 0.03;
     let epsilon = 0.1;
-    let frame_count = 32;
+    let segment_frames = 32;
     let theme = default_theme();
     let mut clouds = vec![
         collect(
@@ -170,8 +170,8 @@ fn main() -> io::Result<()> {
         let target = &pair[1];
         let segment = curves(source, &tangents[index], target, &tangents[index + 1]);
 
-        for frame in usize::from(index > 0)..frame_count {
-            let t = frame as f32 / (frame_count - 1) as f32;
+        for frame in 0..segment_frames {
+            let t = frame as f32 / segment_frames as f32;
             let cloud = interpolate_cloud(&segment, t);
             let pixmap = render_cloud(&cloud, &resolution, projection, view, &theme);
             output.write_all(pixmap.data())?;
