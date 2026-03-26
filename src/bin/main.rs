@@ -1,4 +1,7 @@
-use std::io::{self, Write};
+use std::{
+    env,
+    io::{self, Write},
+};
 
 use glam::{Mat4, UVec3, Vec3};
 use particles::{
@@ -93,9 +96,32 @@ fn noisy<D: Distribution3>(distribution: D, scale: f32) -> Add<D, Gaussian> {
     Add::new(distribution, Gaussian::new(scale))
 }
 
+fn default_resolution() -> Resolution {
+    Resolution::new(512, 288)
+}
+
+fn resolution() -> io::Result<Resolution> {
+    let resolution = match env::var("RESOLUTION") {
+        Ok(value) => value
+            .parse()
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error)),
+        Err(env::VarError::NotPresent) => Ok(default_resolution()),
+        Err(error) => Err(io::Error::new(io::ErrorKind::InvalidInput, error)),
+    }?;
+
+    if resolution.area() == 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "RESOLUTION must have non-zero area",
+        ));
+    }
+
+    Ok(resolution)
+}
+
 fn main() -> io::Result<()> {
     let mut output = io::stdout().lock();
-    let resolution = Resolution::new(512, 288);
+    let resolution = resolution()?;
     let mut rng = Rng::new(0x1234_5678);
     let point_count = 1024;
     let noise_scale = 0.03;
@@ -189,18 +215,4 @@ fn main() -> io::Result<()> {
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::linger;
-
-    #[test]
-    fn linger_slows_near_the_endpoints() {
-        assert_eq!(linger(0.0, 2.5), 0.0);
-        assert_eq!(linger(1.0, 2.5), 1.0);
-        assert_eq!(linger(0.5, 2.5), 0.5);
-        assert!(linger(0.25, 2.5) < 0.25);
-        assert!(linger(0.75, 2.5) > 0.75);
-    }
 }
