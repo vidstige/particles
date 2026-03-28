@@ -53,6 +53,12 @@ fn project(
     Some((x, y))
 }
 
+pub fn render_background(resolution: &Resolution, theme: &Theme) -> Pixmap {
+    let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+    pixmap.fill(theme.background);
+    pixmap
+}
+
 pub fn render_cloud(
     positions: &[Vec3],
     resolution: &Resolution,
@@ -60,8 +66,7 @@ pub fn render_cloud(
     view: Mat4,
     theme: &Theme,
 ) -> Pixmap {
-    let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
-    pixmap.fill(theme.background);
+    let mut pixmap = render_background(resolution, theme);
     let paint = particle_paint(theme);
 
     for point in positions {
