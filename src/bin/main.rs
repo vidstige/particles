@@ -4,7 +4,13 @@ use std::{
     io::{self, Write},
 };
 
-use particles::{render::default_theme, resolution::Resolution};
+use glam::{Mat4, Vec3};
+use particles::{
+    distribution::{collect, Gaussian},
+    render::{default_theme, render_cloud},
+    resolution::Resolution,
+    rng::Rng,
+};
 use tiny_skia::Pixmap;
 
 fn default_resolution() -> Resolution {
@@ -29,15 +35,44 @@ fn resolution() -> Result<Resolution, Box<dyn Error>> {
     Ok(resolution)
 }
 
+fn gaussian_cloud(point_count: usize, scale: f32) -> Vec<Vec3> {
+    collect(
+        &mut Gaussian::new(scale),
+        point_count,
+        &mut Rng::new(0x1234_5678),
+    )
+}
+
+fn projection(resolution: &Resolution) -> Mat4 {
+    Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
+}
+
+fn view(frame: usize, frame_count: usize, radius: f32) -> Mat4 {
+    let angle = frame as f32 / frame_count as f32 * std::f32::consts::TAU;
+    let eye = Vec3::new(radius * angle.cos(), 0.0, radius * angle.sin());
+    Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = default_theme();
     let frame_count = 256;
+    let cloud = gaussian_cloud(4096, 0.42);
+    let projection = projection(&resolution);
 
-    for _ in 0..frame_count {
+    for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
         pixmap.fill(theme.background);
+        render_cloud(
+            &mut pixmap,
+            &cloud,
+            &resolution,
+            projection,
+            view(frame, frame_count, 4.0),
+            &theme,
+            frame as f32 / frame_count as f32,
+        );
         output.write_all(pixmap.data())?;
         output.flush()?;
     }

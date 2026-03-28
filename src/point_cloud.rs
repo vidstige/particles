@@ -182,7 +182,16 @@ pub fn render(
             let cloud = interpolate_cloud(&segment, t);
             let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
             pixmap.fill(theme.background);
-            render_cloud(&mut pixmap, &cloud, resolution, projection, view, theme);
+            let time = (index * segment_frames + frame) as f32 / segment_frames as f32;
+            render_cloud(
+                &mut pixmap,
+                &cloud,
+                resolution,
+                projection,
+                view,
+                theme,
+                time,
+            );
             output.write_all(pixmap.data())?;
             output.flush()?;
         }
