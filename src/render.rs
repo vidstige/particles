@@ -1,23 +1,44 @@
 use glam::{Mat4, Vec3, Vec4};
 
 use crate::resolution::Resolution;
-use tiny_skia::{Color, Pixmap, PremultipliedColorU8};
+use tiny_skia::{Color, Paint, Pixmap, Rect, Transform};
+
+const FOREGROUND_ALPHA: u8 = 96;
+const PARTICLE_SIZE: f32 = 3.0;
+
+fn particle_paint(theme: &Theme) -> Paint<'static> {
+    let mut paint = Paint::default();
+    paint.anti_alias = false;
+    paint.set_color(theme.foreground);
+    paint
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
     pub background: Color,
-    pub foreground: PremultipliedColorU8,
+    pub foreground: Color,
 }
 
 pub fn default_theme() -> Theme {
     Theme {
         background: Color::from_rgba8(14, 14, 18, 255),
-        foreground: PremultipliedColorU8::from_rgba(214, 92, 255, 255).unwrap(),
+        foreground: Color::from_rgba8(214, 92, 255, FOREGROUND_ALPHA),
     }
 }
 
-fn project(point: Vec3, resolution: &Resolution, view_projection: Mat4) -> Option<(u32, u32)> {
-    let clip = view_projection * Vec4::new(point.x, point.y, point.z, 1.0);
+fn draw_square(pixmap: &mut Pixmap, x: f32, y: f32, paint: &Paint) {
+    let half_size = PARTICLE_SIZE * 0.5;
+    let rect = Rect::from_xywh(x - half_size, y - half_size, PARTICLE_SIZE, PARTICLE_SIZE).unwrap();
+    pixmap.fill_rect(rect, paint, Transform::identity(), None);
+}
+
+fn project(
+    point: Vec3,
+    resolution: &Resolution,
+    projection: Mat4,
+    view: Mat4,
+) -> Option<(f32, f32)> {
+    let clip = projection * view * Vec4::new(point.x, point.y, point.z, 1.0);
     if clip.w <= 0.0 {
         return None;
     }
@@ -27,8 +48,8 @@ fn project(point: Vec3, resolution: &Resolution, view_projection: Mat4) -> Optio
         return None;
     }
 
-    let x = ((ndc.x + 1.0) * 0.5 * (resolution.width - 1) as f32).round() as u32;
-    let y = ((1.0 - (ndc.y + 1.0) * 0.5) * (resolution.height - 1) as f32).round() as u32;
+    let x = ((ndc.x + 1.0) * 0.5 * (resolution.width - 1) as f32).round();
+    let y = ((1.0 - (ndc.y + 1.0) * 0.5) * (resolution.height - 1) as f32).round();
     Some((x, y))
 }
 
@@ -41,14 +62,13 @@ pub fn render_cloud(
 ) -> Pixmap {
     let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
     pixmap.fill(theme.background);
-    let view_projection = projection * view;
+    let paint = particle_paint(theme);
 
     for point in positions {
-        let Some((x, y)) = project(*point, resolution, view_projection) else {
+        let Some((x, y)) = project(*point, resolution, projection, view) else {
             continue;
         };
-        let index = y as usize * resolution.width as usize + x as usize;
-        pixmap.pixels_mut()[index] = theme.foreground;
+        draw_square(&mut pixmap, x, y, &paint);
     }
 
     pixmap
