@@ -4,13 +4,13 @@ use std::{
     io::{self, Write},
 };
 
-use glam::{Mat4, UVec3, Vec3};
+use glam::{Mat4, Vec3};
 use particles::{
     assignment::auction_assignment,
     cubic_hermite3::CubicHermite3,
     distribution::{
-        collect, Add, Cube, Distribution3, Gaussian, Grid3d, Gyroid, Icosahedron, Lissajous,
-        Sphere, Tetrahedron, TorusSurface, UniformCube,
+        collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
+        Tetrahedron, TorusSurface, UniformCube,
     },
     render::{default_theme, render_cloud},
     resolution::Resolution,
@@ -137,11 +137,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         ),
         collect(
             &mut noisy(Cube::new(0.9), noise_scale),
-            point_count,
-            &mut rng,
-        ),
-        collect(
-            &mut noisy(Grid3d::new(UVec3::splat(8), Vec3::splat(1.26)), noise_scale),
             point_count,
             &mut rng,
         ),
