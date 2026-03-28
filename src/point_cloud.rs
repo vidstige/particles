@@ -1,6 +1,7 @@
 use std::{error::Error, io::Write};
 
 use glam::{Mat4, Vec3};
+use tiny_skia::Pixmap;
 
 use crate::{
     assignment::auction_assignment,
@@ -179,7 +180,9 @@ pub fn render(
             let phase = frame as f32 / segment_frames as f32;
             let t = linger(phase, linger_power);
             let cloud = interpolate_cloud(&segment, t);
-            let pixmap = render_cloud(&cloud, resolution, projection, view, theme);
+            let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+            pixmap.fill(theme.background);
+            render_cloud(&mut pixmap, &cloud, resolution, projection, view, theme);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }

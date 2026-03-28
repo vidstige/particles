@@ -53,28 +53,20 @@ fn project(
     Some((x, y))
 }
 
-pub fn render_background(resolution: &Resolution, theme: &Theme) -> Pixmap {
-    let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
-    pixmap.fill(theme.background);
-    pixmap
-}
-
 pub fn render_cloud(
+    pixmap: &mut Pixmap,
     positions: &[Vec3],
     resolution: &Resolution,
     projection: Mat4,
     view: Mat4,
     theme: &Theme,
-) -> Pixmap {
-    let mut pixmap = render_background(resolution, theme);
+) {
     let paint = particle_paint(theme);
 
     for point in positions {
         let Some((x, y)) = project(*point, resolution, projection, view) else {
             continue;
         };
-        draw_square(&mut pixmap, x, y, &paint);
+        draw_square(pixmap, x, y, &paint);
     }
-
-    pixmap
 }

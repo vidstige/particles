@@ -4,10 +4,8 @@ use std::{
     io::{self, Write},
 };
 
-use particles::{
-    render::{default_theme, render_background},
-    resolution::Resolution,
-};
+use particles::{render::default_theme, resolution::Resolution};
+use tiny_skia::Pixmap;
 
 fn default_resolution() -> Resolution {
     Resolution::new(512, 288)
@@ -38,7 +36,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let frame_count = 256;
 
     for _ in 0..frame_count {
-        let pixmap = render_background(&resolution, &theme);
+        let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+        pixmap.fill(theme.background);
         output.write_all(pixmap.data())?;
         output.flush()?;
     }
