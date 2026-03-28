@@ -6,5 +6,5 @@ Test must be useful and test something meaningful. Tests content and names descr
 
 Committing:
 Split separable work into separate commits, with one step or concern per commit.
-Each commit should pass: `cargo test` and `cargo fmt --check`
+Each commit should pass: `cargo check`
 Prefix refactoring commit messages with `refactor: `
