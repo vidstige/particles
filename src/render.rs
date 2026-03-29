@@ -164,26 +164,22 @@ pub fn render_cloud(
     assert_eq!(positions.len(), colors.len());
 
     let view_projection = projection * view;
-    let particles: Vec<_> = positions
+    let projected_positions: Vec<_> = positions
         .iter()
         .copied()
-        .enumerate()
-        .filter_map(|(index, point)| {
-            project_particle(point, resolution, view_projection, view)
-                .map(|particle| (index, particle))
-        })
+        .map(|point| project_particle(point, resolution, view_projection, view))
         .collect();
 
-    let Some((depth_min, depth_max)) = particles.iter().map(|(_, particle)| particle.z).fold(
-        None::<(f32, f32)>,
-        |depth_range, depth| match depth_range {
-            Some((depth_min, depth_max)) => Some((depth_min.min(depth), depth_max.max(depth))),
-            None => Some((depth, depth)),
-        },
-    ) else {
+    let depths: Vec<_> = projected_positions
+        .iter()
+        .filter_map(|particle| particle.map(|particle| particle.z))
+        .collect();
+    if depths.is_empty() {
         return;
-    };
+    }
 
+    let depth_min = depths.iter().copied().reduce(f32::min).unwrap();
+    let depth_max = depths.iter().copied().reduce(f32::max).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(resolution);
@@ -191,8 +187,10 @@ pub fn render_cloud(
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
     let pixels = pixmap.data_mut();
 
-    for (index, particle) in &particles {
-        let color = colors[*index];
+    for (particle, color) in projected_positions.iter().zip(colors.iter().copied()) {
+        let Some(particle) = particle else {
+            continue;
+        };
         let depth_t = (particle.z - depth_min) / depth_span;
         let blur = blur_amount(particle.z, focus_depth, depth_span);
         let focus = focus_amount(blur);
