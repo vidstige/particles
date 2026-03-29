@@ -6,8 +6,7 @@ use tiny_skia::{Color, Pixmap};
 const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
 const FOCUS_SWEEP_SPEED: f32 = 0.35;
-const FOCUS_RANGE_SCALE: f32 = 0.16;
-const FOCUS_RANGE_BIAS: f32 = 0.18;
+const DEPTH_BLUR_SCALE: f32 = 4.0;
 const GLOW_RADIUS: f32 = 6.5;
 const GLOW_INTENSITY: f32 = 0.65;
 
@@ -32,8 +31,8 @@ fn foreground_rgb(theme: &Theme) -> Vec3 {
     ) * alpha
 }
 
-fn circle_of_confusion(depth: f32, focus_depth: f32, focus_range: f32) -> f32 {
-    (depth - focus_depth).abs() / focus_range.max(f32::MIN_POSITIVE)
+fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
+    (depth - focus_depth).abs() * DEPTH_BLUR_SCALE / depth_span.max(f32::MIN_POSITIVE)
 }
 
 fn project_clip(clip: Vec4, resolution: &Resolution) -> Option<Vec2> {
@@ -105,12 +104,12 @@ fn glow_dimensions(resolution: &Resolution) -> (u32, u32) {
     (width, height)
 }
 
-fn glow_bounds(width: u32, height: u32, center: Vec2, radius: f32) -> (i32, i32, i32, i32) {
-    pixmap_bounds(width, height, center, radius)
-}
-
-fn splat_glow(glow: &mut [Vec3], width: u32, height: u32, center: Vec2, radius: f32, color: Vec3) {
-    let (min_x, max_x, min_y, max_y) = glow_bounds(width, height, center, radius);
+fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Vec3) {
+    let width = glow.width();
+    let height = glow.height();
+    let (min_x, max_x, min_y, max_y) = pixmap_bounds(width, height, center, radius);
+    let stride = width as usize * 4;
+    let pixels = glow.data_mut();
 
     for y in min_y..=max_y {
         for x in min_x..=max_x {
@@ -120,31 +119,32 @@ fn splat_glow(glow: &mut [Vec3], width: u32, height: u32, center: Vec2, radius: 
                 continue;
             }
 
-            let index = y as usize * width as usize + x as usize;
-            glow[index] += color * weight;
+            let index = y as usize * stride + x as usize * 4;
+            add_rgb(&mut pixels[index..index + 4], color * weight);
         }
     }
 }
 
-fn glow_pixel(glow: &[Vec3], width: u32, height: u32, x: i32, y: i32) -> Vec3 {
-    let x = x.clamp(0, width as i32 - 1) as usize;
-    let y = y.clamp(0, height as i32 - 1) as usize;
-    glow[y * width as usize + x]
+fn glow_rgb(glow: &Pixmap, x: i32, y: i32) -> Vec3 {
+    let x = x.clamp(0, glow.width() as i32 - 1) as usize;
+    let y = y.clamp(0, glow.height() as i32 - 1) as usize;
+    let stride = glow.width() as usize * 4;
+    let index = y * stride + x * 4;
+    let pixel = &glow.data()[index..index + 4];
+    Vec3::new(pixel[0] as f32, pixel[1] as f32, pixel[2] as f32)
 }
 
-fn sample_glow(glow: &[Vec3], width: u32, height: u32, position: Vec2) -> Vec3 {
+fn sample_glow(glow: &Pixmap, position: Vec2) -> Vec3 {
     let x0 = position.x.floor() as i32;
     let y0 = position.y.floor() as i32;
     let tx = position.x - x0 as f32;
     let ty = position.y - y0 as f32;
-    let top = glow_pixel(glow, width, height, x0, y0)
-        .lerp(glow_pixel(glow, width, height, x0 + 1, y0), tx);
-    let bottom = glow_pixel(glow, width, height, x0, y0 + 1)
-        .lerp(glow_pixel(glow, width, height, x0 + 1, y0 + 1), tx);
+    let top = glow_rgb(glow, x0, y0).lerp(glow_rgb(glow, x0 + 1, y0), tx);
+    let bottom = glow_rgb(glow, x0, y0 + 1).lerp(glow_rgb(glow, x0 + 1, y0 + 1), tx);
     top.lerp(bottom, ty)
 }
 
-fn composite_glow(pixmap: &mut Pixmap, glow: &[Vec3], glow_width: u32, glow_height: u32) {
+fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
     let width = pixmap.width();
     let height = pixmap.height();
     let pixels = pixmap.data_mut();
@@ -155,8 +155,6 @@ fn composite_glow(pixmap: &mut Pixmap, glow: &[Vec3], glow_width: u32, glow_heig
         for x in 0..width {
             let sample = sample_glow(
                 glow,
-                glow_width,
-                glow_height,
                 Vec2::new(
                     (x as f32 + 0.5) * scale - 0.5,
                     (y as f32 + 0.5) * scale - 0.5,
@@ -198,6 +196,9 @@ pub fn render_cloud(
         .iter()
         .filter_map(|point| project_particle(*point, resolution, view_projection, view))
         .collect();
+    if particles.is_empty() {
+        return;
+    }
 
     particles.sort_by(|left, right| left.depth.total_cmp(&right.depth));
 
@@ -205,39 +206,37 @@ pub fn render_cloud(
     let depth_max = particles.last().unwrap().depth;
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max, time);
-    let focus_range = depth_span * FOCUS_RANGE_SCALE + FOCUS_RANGE_BIAS;
     let tint = foreground_rgb(theme);
     let (glow_width, glow_height) = glow_dimensions(resolution);
-    let mut glow = vec![Vec3::ZERO; glow_width as usize * glow_height as usize];
+    let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
+    glow.fill(Color::from_rgba8(0, 0, 0, 0));
 
     for particle in &particles {
         let depth_t = (particle.depth - depth_min) / depth_span;
-        let coc = circle_of_confusion(particle.depth, focus_depth, focus_range);
+        let blur = blur_amount(particle.depth, focus_depth, depth_span);
         let near_weight = 1.15 - depth_t * 0.35;
-        let glow_energy = near_weight * (0.2 + coc * 0.5);
-        let glow_radius = 1.0 + GLOW_RADIUS * coc;
+        let glow_energy = near_weight * (0.2 + blur * 0.5);
+        let glow_radius = 1.0 + GLOW_RADIUS * blur;
 
         splat_glow(
             &mut glow,
-            glow_width,
-            glow_height,
             particle.screen / GLOW_DOWNSAMPLE as f32,
             glow_radius / GLOW_DOWNSAMPLE as f32,
             tint * glow_energy,
         );
     }
 
-    composite_glow(pixmap, &glow, glow_width, glow_height);
+    composite_glow(pixmap, &glow);
 }
 
 #[cfg(test)]
 mod tests {
-    use super::circle_of_confusion;
+    use super::blur_amount;
 
     #[test]
-    fn circle_of_confusion_is_zero_at_focus_and_symmetric_around_it() {
-        assert_eq!(circle_of_confusion(4.0, 4.0, 0.5), 0.0);
-        assert_eq!(circle_of_confusion(3.5, 4.0, 0.5), 1.0);
-        assert_eq!(circle_of_confusion(4.5, 4.0, 0.5), 1.0);
+    fn blur_amount_is_zero_at_focus_and_symmetric_around_it() {
+        assert_eq!(blur_amount(4.0, 4.0, 2.0), 0.0);
+        assert_eq!(blur_amount(3.5, 4.0, 2.0), 1.0);
+        assert_eq!(blur_amount(4.5, 4.0, 2.0), 1.0);
     }
 }
