@@ -164,24 +164,26 @@ pub fn render_cloud(
     assert_eq!(positions.len(), colors.len());
 
     let view_projection = projection * view;
-    let mut particles = Vec::with_capacity(positions.len());
-    let mut depth_range: Option<(f32, f32)> = None;
+    let particles: Vec<_> = positions
+        .iter()
+        .copied()
+        .enumerate()
+        .filter_map(|(index, point)| {
+            project_particle(point, resolution, view_projection, view)
+                .map(|particle| (index, particle))
+        })
+        .collect();
 
-    for (point, color) in positions.iter().zip(colors.iter().copied()) {
-        let Some(particle) = project_particle(*point, resolution, view_projection, view) else {
-            continue;
-        };
-
-        depth_range = Some(match depth_range {
-            Some((depth_min, depth_max)) => (depth_min.min(particle.z), depth_max.max(particle.z)),
-            None => (particle.z, particle.z),
-        });
-        particles.push((particle, color));
-    }
-
-    let Some((depth_min, depth_max)) = depth_range else {
+    let Some((depth_min, depth_max)) = particles.iter().map(|(_, particle)| particle.z).fold(
+        None::<(f32, f32)>,
+        |depth_range, depth| match depth_range {
+            Some((depth_min, depth_max)) => Some((depth_min.min(depth), depth_max.max(depth))),
+            None => Some((depth, depth)),
+        },
+    ) else {
         return;
     };
+
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(resolution);
@@ -189,7 +191,8 @@ pub fn render_cloud(
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
     let pixels = pixmap.data_mut();
 
-    for (particle, color) in &particles {
+    for (index, particle) in &particles {
+        let color = colors[*index];
         let depth_t = (particle.z - depth_min) / depth_span;
         let blur = blur_amount(particle.z, focus_depth, depth_span);
         let focus = focus_amount(blur);
@@ -204,14 +207,14 @@ pub fn render_cloud(
             resolution.height,
             particle.truncate(),
             SHARP_RADIUS,
-            *color * sharp_energy,
+            color * sharp_energy,
         );
 
         splat_glow(
             &mut glow,
             particle.truncate() / GLOW_DOWNSAMPLE as f32,
             glow_radius / GLOW_DOWNSAMPLE as f32,
-            *color * glow_energy,
+            color * glow_energy,
         );
     }
 
