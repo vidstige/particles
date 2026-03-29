@@ -67,12 +67,8 @@ fn project_particle(
 fn circular_falloff(offset: Vec2, radius: f32) -> f32 {
     let distance2 = offset.length_squared();
     let radius2 = radius * radius;
-    if distance2 >= radius2 {
-        return 0.0;
-    }
-
     let weight = 1.0 - distance2 / radius2.max(f32::MIN_POSITIVE);
-    weight * weight
+    weight.max(0.0).powi(2)
 }
 
 fn pixmap_bounds(width: u32, height: u32, center: Vec2, radius: f32) -> (i32, i32, i32, i32) {
@@ -110,10 +106,6 @@ fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
         for x in min_x..=max_x {
             let offset = Vec2::new(x as f32 + 0.5, y as f32 + 0.5) - center;
             let weight = circular_falloff(offset, radius);
-            if weight == 0.0 {
-                continue;
-            }
-
             let index = y as usize * stride + x as usize * 4;
             add_rgb(&mut pixels[index..index + 4], color * weight);
         }
@@ -155,10 +147,6 @@ fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
                     (y as f32 + 0.5) * scale - 0.5,
                 ),
             ) * GLOW_INTENSITY;
-            if sample.is_black() {
-                continue;
-            }
-
             let index = y as usize * stride + x as usize * 4;
             add_rgb(&mut pixels[index..index + 4], sample);
         }
@@ -191,14 +179,12 @@ pub fn render_cloud(
         .iter()
         .filter_map(|point| project_particle(*point, resolution, view_projection, view))
         .collect();
-    if particles.is_empty() {
-        return;
-    }
-
     particles.sort_by(|left, right| left.depth.total_cmp(&right.depth));
 
-    let depth_min = particles.first().unwrap().depth;
-    let depth_max = particles.last().unwrap().depth;
+    let Some(depth_min) = particles.first().map(|particle| particle.depth) else {
+        return;
+    };
+    let depth_max = particles.last().map(|particle| particle.depth).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max, time);
     let tint = foreground_rgb(theme);

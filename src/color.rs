@@ -29,10 +29,6 @@ impl Color {
         Self::new(red as f32, green as f32, blue as f32)
     }
 
-    pub fn is_black(self) -> bool {
-        self == Self::BLACK
-    }
-
     pub fn lerp(self, other: Self, t: f32) -> Self {
         self * (1.0 - t) + other * t
     }
