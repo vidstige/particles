@@ -1,7 +1,7 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
-use crate::resolution::Resolution;
-use tiny_skia::{Color, Pixmap};
+use crate::{color::Color, resolution::Resolution};
+use tiny_skia::{Color as TinyColor, Pixmap};
 
 const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
@@ -12,8 +12,8 @@ const GLOW_INTENSITY: f32 = 0.65;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
-    pub background: Color,
-    pub foreground: Color,
+    pub background: TinyColor,
+    pub foreground: TinyColor,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -22,13 +22,8 @@ struct ProjectedParticle {
     depth: f32,
 }
 
-fn foreground_rgb(theme: &Theme) -> Vec3 {
-    let alpha = theme.foreground.alpha() * 255.0;
-    Vec3::new(
-        theme.foreground.red(),
-        theme.foreground.green(),
-        theme.foreground.blue(),
-    ) * alpha
+fn foreground_rgb(theme: &Theme) -> Color {
+    Color::from_tiny_color(theme.foreground)
 }
 
 fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
@@ -92,10 +87,10 @@ fn pixmap_bounds(width: u32, height: u32, center: Vec2, radius: f32) -> (i32, i3
     (min_x, max_x, min_y, max_y)
 }
 
-fn add_rgb(pixel: &mut [u8], color: Vec3) {
-    pixel[0] = (pixel[0] as f32 + color.x).clamp(0.0, 255.0) as u8;
-    pixel[1] = (pixel[1] as f32 + color.y).clamp(0.0, 255.0) as u8;
-    pixel[2] = (pixel[2] as f32 + color.z).clamp(0.0, 255.0) as u8;
+fn add_rgb(pixel: &mut [u8], color: Color) {
+    pixel[0] = (pixel[0] as f32 + color.red).clamp(0.0, 255.0) as u8;
+    pixel[1] = (pixel[1] as f32 + color.green).clamp(0.0, 255.0) as u8;
+    pixel[2] = (pixel[2] as f32 + color.blue).clamp(0.0, 255.0) as u8;
 }
 
 fn glow_dimensions(resolution: &Resolution) -> (u32, u32) {
@@ -104,7 +99,7 @@ fn glow_dimensions(resolution: &Resolution) -> (u32, u32) {
     (width, height)
 }
 
-fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Vec3) {
+fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
     let width = glow.width();
     let height = glow.height();
     let (min_x, max_x, min_y, max_y) = pixmap_bounds(width, height, center, radius);
@@ -125,16 +120,16 @@ fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Vec3) {
     }
 }
 
-fn glow_rgb(glow: &Pixmap, x: i32, y: i32) -> Vec3 {
+fn glow_rgb(glow: &Pixmap, x: i32, y: i32) -> Color {
     let x = x.clamp(0, glow.width() as i32 - 1) as usize;
     let y = y.clamp(0, glow.height() as i32 - 1) as usize;
     let stride = glow.width() as usize * 4;
     let index = y * stride + x * 4;
     let pixel = &glow.data()[index..index + 4];
-    Vec3::new(pixel[0] as f32, pixel[1] as f32, pixel[2] as f32)
+    Color::from_rgb8(pixel[0], pixel[1], pixel[2])
 }
 
-fn sample_glow(glow: &Pixmap, position: Vec2) -> Vec3 {
+fn sample_glow(glow: &Pixmap, position: Vec2) -> Color {
     let x0 = position.x.floor() as i32;
     let y0 = position.y.floor() as i32;
     let tx = position.x - x0 as f32;
@@ -160,7 +155,7 @@ fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
                     (y as f32 + 0.5) * scale - 0.5,
                 ),
             ) * GLOW_INTENSITY;
-            if sample == Vec3::ZERO {
+            if sample.is_black() {
                 continue;
             }
 
@@ -177,8 +172,8 @@ fn focus_depth(depth_min: f32, depth_max: f32, time: f32) -> f32 {
 
 pub fn default_theme() -> Theme {
     Theme {
-        background: Color::from_rgba8(14, 14, 18, 255),
-        foreground: Color::from_rgba8(214, 92, 255, FOREGROUND_ALPHA),
+        background: TinyColor::from_rgba8(14, 14, 18, 255),
+        foreground: TinyColor::from_rgba8(214, 92, 255, FOREGROUND_ALPHA),
     }
 }
 
@@ -209,7 +204,7 @@ pub fn render_cloud(
     let tint = foreground_rgb(theme);
     let (glow_width, glow_height) = glow_dimensions(resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
-    glow.fill(Color::from_rgba8(0, 0, 0, 0));
+    glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
 
     for particle in &particles {
         let depth_t = (particle.depth - depth_min) / depth_span;
