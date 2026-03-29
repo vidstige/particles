@@ -72,6 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             projection,
             view(angle, 4.0),
             &theme,
+            frame as f32,
         );
         output.write_all(pixmap.data())?;
         output.flush()?;
