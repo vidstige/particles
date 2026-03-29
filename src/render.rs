@@ -87,39 +87,16 @@ fn pixmap_bounds(width: u32, height: u32, center: Vec2, radius: f32) -> (i32, i3
     (min_x, max_x, min_y, max_y)
 }
 
-fn add_rgb(pixel: &mut [u8], color: Color) {
+fn add_color<const WRITE_ALPHA: bool>(pixel: &mut [u8], color: Color) {
     pixel[0] = (pixel[0] as f32 + color.red).clamp(0.0, 255.0) as u8;
     pixel[1] = (pixel[1] as f32 + color.green).clamp(0.0, 255.0) as u8;
     pixel[2] = (pixel[2] as f32 + color.blue).clamp(0.0, 255.0) as u8;
-}
-
-fn add_glow(pixel: &mut [u8], color: Color) {
-    add_rgb(pixel, color);
-    pixel[3] = pixel[0].max(pixel[1]).max(pixel[2]);
-}
-
-fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
-    let width = glow.width();
-    let height = glow.height();
-    let (min_x, max_x, min_y, max_y) = pixmap_bounds(width, height, center, radius);
-    let stride = width as usize * 4;
-    let pixels = glow.data_mut();
-
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let offset = Vec2::new(x as f32 + 0.5, y as f32 + 0.5) - center;
-            let distance2 = offset.length_squared();
-            let radius2 = radius * radius;
-            let weight = (1.0 - distance2 / radius2.max(f32::MIN_POSITIVE))
-                .max(0.0)
-                .powi(2);
-            let index = y as usize * stride + x as usize * 4;
-            add_glow(&mut pixels[index..index + 4], color * weight);
-        }
+    if WRITE_ALPHA {
+        pixel[3] = pixel[0].max(pixel[1]).max(pixel[2]);
     }
 }
 
-fn splat_sharp(
+fn splat<const WRITE_ALPHA: bool>(
     pixels: &mut [u8],
     width: u32,
     height: u32,
@@ -138,9 +115,26 @@ fn splat_sharp(
                 .max(0.0)
                 .powi(2);
             let index = y as usize * stride + x as usize * 4;
-            add_rgb(&mut pixels[index..index + 4], color * weight);
+            add_color::<WRITE_ALPHA>(&mut pixels[index..index + 4], color * weight);
         }
     }
+}
+
+fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
+    let width = glow.width();
+    let height = glow.height();
+    splat::<true>(glow.data_mut(), width, height, center, radius, color);
+}
+
+fn splat_sharp(
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    center: Vec2,
+    radius: f32,
+    color: Color,
+) {
+    splat::<false>(pixels, width, height, center, radius, color);
 }
 
 fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
