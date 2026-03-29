@@ -164,20 +164,24 @@ pub fn render_cloud(
     assert_eq!(positions.len(), colors.len());
 
     let view_projection = projection * view;
-    let mut particles: Vec<_> = positions
-        .iter()
-        .zip(colors.iter().copied())
-        .filter_map(|(point, color)| {
-            project_particle(*point, resolution, view_projection, view)
-                .map(|particle| (particle, color))
-        })
-        .collect();
-    particles.sort_by(|left, right| left.0.z.total_cmp(&right.0.z));
+    let mut particles = Vec::with_capacity(positions.len());
+    let mut depth_range: Option<(f32, f32)> = None;
 
-    let Some(depth_min) = particles.first().map(|(particle, _)| particle.z) else {
+    for (point, color) in positions.iter().zip(colors.iter().copied()) {
+        let Some(particle) = project_particle(*point, resolution, view_projection, view) else {
+            continue;
+        };
+
+        depth_range = Some(match depth_range {
+            Some((depth_min, depth_max)) => (depth_min.min(particle.z), depth_max.max(particle.z)),
+            None => (particle.z, particle.z),
+        });
+        particles.push((particle, color));
+    }
+
+    let Some((depth_min, depth_max)) = depth_range else {
         return;
     };
-    let depth_max = particles.last().map(|(particle, _)| particle.z).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(resolution);
