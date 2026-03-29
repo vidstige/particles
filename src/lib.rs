@@ -2,6 +2,7 @@ pub mod assignment;
 pub mod color;
 pub mod cubic_hermite3;
 pub mod distribution;
+pub mod glitter;
 pub mod point_cloud;
 pub mod render;
 pub mod resolution;

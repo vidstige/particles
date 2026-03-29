@@ -1,7 +1,6 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
 use crate::{color::Color, resolution::Resolution};
-use std::f32::consts::TAU;
 use tiny_skia::{BlendMode, Color as TinyColor, FilterQuality, Pixmap, PixmapPaint, Transform};
 
 const FOREGROUND_ALPHA: u8 = 96;
@@ -13,9 +12,6 @@ const SHARP_INTENSITY: f32 = 1.35;
 const GLOW_RADIUS: f32 = 6.5;
 const GLOW_INTENSITY: f32 = 0.65;
 
-const GLITTER_SPEED: f32 = 0.5;
-const GLITTER_DENSITY: f32 = 0.06;
-
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
     pub background: TinyColor,
@@ -23,15 +19,10 @@ pub struct Theme {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct ProjectedParticle {
+struct VisibleParticle {
     screen: Vec2,
     depth: f32,
-    glitter_phase: f32,
-    glitter_seed: f32,
-}
-
-fn foreground_rgb(theme: &Theme) -> Color {
-    Color::from_tiny_color(theme.foreground)
+    color: Color,
 }
 
 fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
@@ -40,22 +31,6 @@ fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
 
 fn focus_amount(blur: f32) -> f32 {
     (1.0 - blur).clamp(0.0, 1.0)
-}
-
-fn unit_noise(seed: f32) -> f32 {
-    (seed.sin() * 43_758.547).rem_euclid(1.0)
-}
-
-fn mix_color(left: Color, right: Color, t: f32) -> Color {
-    left * (1.0 - t) + right * t
-}
-
-fn glitter_amount(seed: f32, phase: f32, time: f32) -> f32 {
-    if seed >= GLITTER_DENSITY {
-        return 0.0;
-    }
-
-    (time * GLITTER_SPEED + phase).sin().max(0.0).powi(8)
 }
 
 fn project_clip(clip: Vec4, resolution: &Resolution) -> Option<Vec2> {
@@ -78,20 +53,19 @@ fn project_position(point: Vec3, resolution: &Resolution, view_projection: Mat4)
 }
 
 fn project_particle(
-    index: usize,
     point: Vec3,
+    color: Color,
     resolution: &Resolution,
     view_projection: Mat4,
     view: Mat4,
-) -> Option<ProjectedParticle> {
+) -> Option<VisibleParticle> {
     let view_point = view.transform_point3(point);
     let screen = project_position(point, resolution, view_projection)?;
 
-    Some(ProjectedParticle {
+    Some(VisibleParticle {
         screen,
         depth: -view_point.z,
-        glitter_phase: unit_noise(index as f32 * 12.9898) * TAU,
-        glitter_seed: unit_noise(index as f32 * 78.233),
+        color,
     })
 }
 
@@ -194,18 +168,19 @@ pub fn default_theme() -> Theme {
 pub fn render_cloud(
     pixmap: &mut Pixmap,
     positions: &[Vec3],
+    colors: &[Color],
     resolution: &Resolution,
     projection: Mat4,
     view: Mat4,
-    theme: &Theme,
-    time: f32,
 ) {
+    assert_eq!(positions.len(), colors.len());
+
     let view_projection = projection * view;
     let mut particles: Vec<_> = positions
         .iter()
-        .enumerate()
-        .filter_map(|(index, point)| {
-            project_particle(index, *point, resolution, view_projection, view)
+        .zip(colors.iter().copied())
+        .filter_map(|(point, color)| {
+            project_particle(*point, color, resolution, view_projection, view)
         })
         .collect();
     particles.sort_by(|left, right| left.depth.total_cmp(&right.depth));
@@ -216,8 +191,6 @@ pub fn render_cloud(
     let depth_max = particles.last().map(|particle| particle.depth).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
-    let tint = foreground_rgb(theme);
-    let glitter_tint = Color::from_tiny_color(TinyColor::WHITE);
     let (glow_width, glow_height) = glow_dimensions(resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
@@ -227,8 +200,6 @@ pub fn render_cloud(
         let depth_t = (particle.depth - depth_min) / depth_span;
         let blur = blur_amount(particle.depth, focus_depth, depth_span);
         let focus = focus_amount(blur);
-        let glitter = glitter_amount(particle.glitter_seed, particle.glitter_phase, time);
-        let color = mix_color(tint, glitter_tint, glitter);
         let near_weight = 1.15 - depth_t * 0.35;
         let sharp_energy = near_weight * focus.powi(2) * SHARP_INTENSITY;
         let glow_energy = near_weight * (0.05 + blur * 0.5);
@@ -240,14 +211,14 @@ pub fn render_cloud(
             resolution.height,
             particle.screen,
             SHARP_RADIUS,
-            color * sharp_energy,
+            particle.color * sharp_energy,
         );
 
         splat_glow(
             &mut glow,
             particle.screen / GLOW_DOWNSAMPLE as f32,
             glow_radius / GLOW_DOWNSAMPLE as f32,
-            color * glow_energy,
+            particle.color * glow_energy,
         );
     }
 

@@ -6,7 +6,9 @@ use std::{
 
 use glam::{Mat4, Vec3};
 use particles::{
+    color::Color,
     distribution::{collect, Gaussian},
+    glitter::{default_glitter_params, glitter_colors, glitter_particles},
     render::{default_theme, render_cloud},
     resolution::Resolution,
     rng::Rng,
@@ -59,20 +61,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     let frame_count = 512;
     let theta = std::f32::consts::TAU / 256.0;
     let cloud = gaussian_cloud(4096, 0.42);
+    let mut rng = Rng::new(0x9abc_def0);
+    let glitter_particles = glitter_particles(&mut rng, cloud.len());
+    let base_colors = vec![Color::from_tiny_color(theme.foreground); cloud.len()];
+    let glitter = default_glitter_params();
     let projection = projection(&resolution);
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
         pixmap.fill(theme.background);
         let angle = frame as f32 * theta;
+        let colors = glitter_colors(&base_colors, &glitter_particles, frame as f32, glitter);
         render_cloud(
             &mut pixmap,
             &cloud,
+            &colors,
             &resolution,
             projection,
             view(angle, 4.0),
-            &theme,
-            frame as f32,
         );
         output.write_all(pixmap.data())?;
         output.flush()?;

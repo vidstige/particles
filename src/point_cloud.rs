@@ -5,11 +5,13 @@ use tiny_skia::Pixmap;
 
 use crate::{
     assignment::auction_assignment,
+    color::Color,
     cubic_hermite3::CubicHermite3,
     distribution::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
         Tetrahedron, TorusSurface, UniformCube,
     },
+    glitter::{default_glitter_params, glitter_colors, glitter_particles},
     render::{render_cloud, Theme},
     resolution::Resolution,
     rng::Rng,
@@ -162,6 +164,9 @@ pub fn render(
     let segment_frames = 32;
     let linger_power = 2.5;
     let mut clouds = clouds(&mut rng, point_count, noise_scale);
+    let glitter_particles = glitter_particles(&mut rng, point_count);
+    let base_colors = vec![Color::from_tiny_color(theme.foreground); point_count];
+    let glitter = default_glitter_params();
 
     for index in 1..clouds.len() {
         clouds[index] = match_positions(&clouds[index - 1], &clouds[index], epsilon);
@@ -183,15 +188,8 @@ pub fn render(
             let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
             pixmap.fill(theme.background);
             let time = (index * segment_frames + frame) as f32;
-            render_cloud(
-                &mut pixmap,
-                &cloud,
-                resolution,
-                projection,
-                view,
-                theme,
-                time,
-            );
+            let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
+            render_cloud(&mut pixmap, &cloud, &colors, resolution, projection, view);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }
