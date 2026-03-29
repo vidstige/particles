@@ -8,7 +8,7 @@ use glam::{Mat4, Vec3};
 use particles::{
     color::Color,
     distribution::{collect, Gaussian},
-    glitter::{default_glitter_params, glitter_colors, glitter_particles},
+    glitter::{glitter_colors, glitter_particles, Glitter},
     render::{default_theme, render_cloud},
     resolution::Resolution,
     rng::Rng,
@@ -64,7 +64,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut rng = Rng::new(0x9abc_def0);
     let glitter_particles = glitter_particles(&mut rng, cloud.len());
     let base_colors = vec![Color::from_tiny_color(theme.foreground); cloud.len()];
-    let glitter = default_glitter_params();
+    let glitter = Glitter {
+        glint_time: 3.0,
+        pause_time: 9.0,
+    };
     let projection = projection(&resolution);
 
     for frame in 0..frame_count {
