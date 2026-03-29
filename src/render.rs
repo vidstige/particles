@@ -1,7 +1,7 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
 use crate::{color::Color, resolution::Resolution};
-use tiny_skia::{Color as TinyColor, Pixmap};
+use tiny_skia::{BlendMode, Color as TinyColor, FilterQuality, Pixmap, PixmapPaint, Transform};
 
 const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
@@ -64,11 +64,10 @@ fn project_particle(
     })
 }
 
-fn circular_falloff(offset: Vec2, radius: f32) -> f32 {
-    let distance2 = offset.length_squared();
-    let radius2 = radius * radius;
-    let weight = 1.0 - distance2 / radius2.max(f32::MIN_POSITIVE);
-    weight.max(0.0).powi(2)
+fn glow_dimensions(resolution: &Resolution) -> (u32, u32) {
+    let width = resolution.width.div_ceil(GLOW_DOWNSAMPLE).max(1);
+    let height = resolution.height.div_ceil(GLOW_DOWNSAMPLE).max(1);
+    (width, height)
 }
 
 fn pixmap_bounds(width: u32, height: u32, center: Vec2, radius: f32) -> (i32, i32, i32, i32) {
@@ -89,10 +88,9 @@ fn add_rgb(pixel: &mut [u8], color: Color) {
     pixel[2] = (pixel[2] as f32 + color.blue).clamp(0.0, 255.0) as u8;
 }
 
-fn glow_dimensions(resolution: &Resolution) -> (u32, u32) {
-    let width = resolution.width.div_ceil(GLOW_DOWNSAMPLE).max(1);
-    let height = resolution.height.div_ceil(GLOW_DOWNSAMPLE).max(1);
-    (width, height)
+fn add_glow(pixel: &mut [u8], color: Color) {
+    add_rgb(pixel, color);
+    pixel[3] = pixel[0].max(pixel[1]).max(pixel[2]);
 }
 
 fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
@@ -105,52 +103,32 @@ fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
     for y in min_y..=max_y {
         for x in min_x..=max_x {
             let offset = Vec2::new(x as f32 + 0.5, y as f32 + 0.5) - center;
-            let weight = circular_falloff(offset, radius);
+            let distance2 = offset.length_squared();
+            let radius2 = radius * radius;
+            let weight = (1.0 - distance2 / radius2.max(f32::MIN_POSITIVE))
+                .max(0.0)
+                .powi(2);
             let index = y as usize * stride + x as usize * 4;
-            add_rgb(&mut pixels[index..index + 4], color * weight);
+            add_glow(&mut pixels[index..index + 4], color * weight);
         }
     }
-}
-
-fn glow_rgb(glow: &Pixmap, x: i32, y: i32) -> Color {
-    let x = x.clamp(0, glow.width() as i32 - 1) as usize;
-    let y = y.clamp(0, glow.height() as i32 - 1) as usize;
-    let stride = glow.width() as usize * 4;
-    let index = y * stride + x * 4;
-    let pixel = &glow.data()[index..index + 4];
-    Color::from_rgb8(pixel[0], pixel[1], pixel[2])
-}
-
-fn sample_glow(glow: &Pixmap, position: Vec2) -> Color {
-    let x0 = position.x.floor() as i32;
-    let y0 = position.y.floor() as i32;
-    let tx = position.x - x0 as f32;
-    let ty = position.y - y0 as f32;
-    let top = glow_rgb(glow, x0, y0).lerp(glow_rgb(glow, x0 + 1, y0), tx);
-    let bottom = glow_rgb(glow, x0, y0 + 1).lerp(glow_rgb(glow, x0 + 1, y0 + 1), tx);
-    top.lerp(bottom, ty)
 }
 
 fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
-    let width = pixmap.width();
-    let height = pixmap.height();
-    let pixels = pixmap.data_mut();
-    let stride = width as usize * 4;
-    let scale = 1.0 / GLOW_DOWNSAMPLE as f32;
+    let paint = PixmapPaint {
+        opacity: GLOW_INTENSITY,
+        blend_mode: BlendMode::Plus,
+        quality: FilterQuality::Bilinear,
+    };
 
-    for y in 0..height {
-        for x in 0..width {
-            let sample = sample_glow(
-                glow,
-                Vec2::new(
-                    (x as f32 + 0.5) * scale - 0.5,
-                    (y as f32 + 0.5) * scale - 0.5,
-                ),
-            ) * GLOW_INTENSITY;
-            let index = y as usize * stride + x as usize * 4;
-            add_rgb(&mut pixels[index..index + 4], sample);
-        }
-    }
+    pixmap.draw_pixmap(
+        0,
+        0,
+        glow.as_ref(),
+        &paint,
+        Transform::from_scale(GLOW_DOWNSAMPLE as f32, GLOW_DOWNSAMPLE as f32),
+        None,
+    );
 }
 
 fn focus_depth(depth_min: f32, depth_max: f32, time: f32) -> f32 {
