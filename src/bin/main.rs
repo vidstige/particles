@@ -47,8 +47,7 @@ fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
 }
 
-fn view(frame: usize, frame_count: usize, radius: f32) -> Mat4 {
-    let angle = frame as f32 / frame_count as f32 * std::f32::consts::TAU;
+fn view(angle: f32, radius: f32) -> Mat4 {
     let eye = Vec3::new(radius * angle.cos(), 0.0, radius * angle.sin());
     Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
 }
@@ -57,21 +56,22 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = default_theme();
-    let frame_count = 256;
+    let frame_count = 512;
+    let theta = std::f32::consts::TAU / 256.0;
     let cloud = gaussian_cloud(4096, 0.42);
     let projection = projection(&resolution);
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
         pixmap.fill(theme.background);
+        let angle = frame as f32 * theta;
         render_cloud(
             &mut pixmap,
             &cloud,
             &resolution,
             projection,
-            view(frame, frame_count, 4.0),
+            view(angle, 4.0),
             &theme,
-            frame as f32 / frame_count as f32,
         );
         output.write_all(pixmap.data())?;
         output.flush()?;

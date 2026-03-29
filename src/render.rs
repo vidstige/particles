@@ -5,7 +5,6 @@ use tiny_skia::{BlendMode, Color as TinyColor, FilterQuality, Pixmap, PixmapPain
 
 const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
-const FOCUS_SWEEP_SPEED: f32 = 0.35;
 const DEPTH_BLUR_SCALE: f32 = 4.0;
 const SHARP_RADIUS: f32 = 1.25;
 const SHARP_INTENSITY: f32 = 1.35;
@@ -161,9 +160,8 @@ fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
     );
 }
 
-fn focus_depth(depth_min: f32, depth_max: f32, time: f32) -> f32 {
-    let sweep = 0.5 + 0.25 * (time * FOCUS_SWEEP_SPEED).sin();
-    depth_min + (depth_max - depth_min) * sweep
+fn focus_depth(depth_min: f32, depth_max: f32) -> f32 {
+    depth_min + (depth_max - depth_min) * 0.5
 }
 
 pub fn default_theme() -> Theme {
@@ -180,7 +178,6 @@ pub fn render_cloud(
     projection: Mat4,
     view: Mat4,
     theme: &Theme,
-    time: f32,
 ) {
     let view_projection = projection * view;
     let mut particles: Vec<_> = positions
@@ -194,7 +191,7 @@ pub fn render_cloud(
     };
     let depth_max = particles.last().map(|particle| particle.depth).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
-    let focus_depth = focus_depth(depth_min, depth_max, time);
+    let focus_depth = focus_depth(depth_min, depth_max);
     let tint = foreground_rgb(theme);
     let (glow_width, glow_height) = glow_dimensions(resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
