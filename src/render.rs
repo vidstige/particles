@@ -7,6 +7,8 @@ const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
 const FOCUS_SWEEP_SPEED: f32 = 0.35;
 const DEPTH_BLUR_SCALE: f32 = 4.0;
+const SHARP_RADIUS: f32 = 1.25;
+const SHARP_INTENSITY: f32 = 1.35;
 const GLOW_RADIUS: f32 = 6.5;
 const GLOW_INTENSITY: f32 = 0.65;
 
@@ -28,6 +30,10 @@ fn foreground_rgb(theme: &Theme) -> Color {
 
 fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
     (depth - focus_depth).abs() * DEPTH_BLUR_SCALE / depth_span.max(f32::MIN_POSITIVE)
+}
+
+fn focus_amount(blur: f32) -> f32 {
+    (1.0 - blur).clamp(0.0, 1.0)
 }
 
 fn project_clip(clip: Vec4, resolution: &Resolution) -> Option<Vec2> {
@@ -114,6 +120,30 @@ fn splat_glow(glow: &mut Pixmap, center: Vec2, radius: f32, color: Color) {
     }
 }
 
+fn splat_sharp(
+    pixels: &mut [u8],
+    width: u32,
+    height: u32,
+    center: Vec2,
+    radius: f32,
+    color: Color,
+) {
+    let (min_x, max_x, min_y, max_y) = pixmap_bounds(width, height, center, radius);
+    let stride = width as usize * 4;
+    let radius2 = radius * radius;
+
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let offset = Vec2::new(x as f32 + 0.5, y as f32 + 0.5) - center;
+            let weight = (1.0 - offset.length_squared() / radius2.max(f32::MIN_POSITIVE))
+                .max(0.0)
+                .powi(2);
+            let index = y as usize * stride + x as usize * 4;
+            add_rgb(&mut pixels[index..index + 4], color * weight);
+        }
+    }
+}
+
 fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
     let paint = PixmapPaint {
         opacity: GLOW_INTENSITY,
@@ -169,13 +199,25 @@ pub fn render_cloud(
     let (glow_width, glow_height) = glow_dimensions(resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
+    let pixels = pixmap.data_mut();
 
     for particle in &particles {
         let depth_t = (particle.depth - depth_min) / depth_span;
         let blur = blur_amount(particle.depth, focus_depth, depth_span);
+        let focus = focus_amount(blur);
         let near_weight = 1.15 - depth_t * 0.35;
-        let glow_energy = near_weight * (0.2 + blur * 0.5);
-        let glow_radius = 1.0 + GLOW_RADIUS * blur;
+        let sharp_energy = near_weight * focus.powi(2) * SHARP_INTENSITY;
+        let glow_energy = near_weight * (0.05 + blur * 0.5);
+        let glow_radius = 0.5 + GLOW_RADIUS * blur;
+
+        splat_sharp(
+            pixels,
+            resolution.width,
+            resolution.height,
+            particle.screen,
+            SHARP_RADIUS,
+            tint * sharp_energy,
+        );
 
         splat_glow(
             &mut glow,
@@ -190,12 +232,20 @@ pub fn render_cloud(
 
 #[cfg(test)]
 mod tests {
-    use super::blur_amount;
+    use super::{blur_amount, focus_amount};
 
     #[test]
     fn blur_amount_is_zero_at_focus_and_symmetric_around_it() {
         assert_eq!(blur_amount(4.0, 4.0, 2.0), 0.0);
         assert_eq!(blur_amount(3.5, 4.0, 2.0), 1.0);
         assert_eq!(blur_amount(4.5, 4.0, 2.0), 1.0);
+    }
+
+    #[test]
+    fn focus_amount_fades_out_once_blur_reaches_one() {
+        assert_eq!(focus_amount(0.0), 1.0);
+        assert_eq!(focus_amount(0.25), 0.75);
+        assert_eq!(focus_amount(1.0), 0.0);
+        assert_eq!(focus_amount(2.0), 0.0);
     }
 }
