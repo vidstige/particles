@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use tiny_skia::Color as TinyColor;
 
-use crate::{color::Color, rng::Rng};
+use crate::{color::Color, lerp::lerp, rng::Rng};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Glitter {
@@ -13,10 +13,6 @@ pub struct Glitter {
 #[derive(Clone, Copy, Debug)]
 pub struct GlitterParams {
     phase: f32,
-}
-
-fn mix_color(left: Color, right: Color, t: f32) -> Color {
-    left * (1.0 - t) + right * t
 }
 
 fn glitter_amount(particle: GlitterParams, time: f32, glitter: Glitter) -> f32 {
@@ -53,7 +49,7 @@ pub fn glitter_colors(
         .zip(particles)
         .map(|(base_color, particle)| {
             let amount = glitter_amount(*particle, time, glitter);
-            mix_color(*base_color, glitter_tint, amount)
+            lerp(*base_color, glitter_tint, amount)
         })
         .collect()
 }
