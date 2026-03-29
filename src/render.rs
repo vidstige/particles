@@ -22,7 +22,6 @@ pub struct Theme {
 struct VisibleParticle {
     screen: Vec2,
     depth: f32,
-    color: Color,
 }
 
 fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
@@ -54,7 +53,6 @@ fn project_position(point: Vec3, resolution: &Resolution, view_projection: Mat4)
 
 fn project_particle(
     point: Vec3,
-    color: Color,
     resolution: &Resolution,
     view_projection: Mat4,
     view: Mat4,
@@ -65,7 +63,6 @@ fn project_particle(
     Some(VisibleParticle {
         screen,
         depth: -view_point.z,
-        color,
     })
 }
 
@@ -180,15 +177,19 @@ pub fn render_cloud(
         .iter()
         .zip(colors.iter().copied())
         .filter_map(|(point, color)| {
-            project_particle(*point, color, resolution, view_projection, view)
+            project_particle(*point, resolution, view_projection, view)
+                .map(|particle| (particle, color))
         })
         .collect();
-    particles.sort_by(|left, right| left.depth.total_cmp(&right.depth));
+    particles.sort_by(|left, right| left.0.depth.total_cmp(&right.0.depth));
 
-    let Some(depth_min) = particles.first().map(|particle| particle.depth) else {
+    let Some(depth_min) = particles.first().map(|(particle, _)| particle.depth) else {
         return;
     };
-    let depth_max = particles.last().map(|particle| particle.depth).unwrap();
+    let depth_max = particles
+        .last()
+        .map(|(particle, _)| particle.depth)
+        .unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(resolution);
@@ -196,7 +197,7 @@ pub fn render_cloud(
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
     let pixels = pixmap.data_mut();
 
-    for particle in &particles {
+    for (particle, color) in &particles {
         let depth_t = (particle.depth - depth_min) / depth_span;
         let blur = blur_amount(particle.depth, focus_depth, depth_span);
         let focus = focus_amount(blur);
@@ -211,14 +212,14 @@ pub fn render_cloud(
             resolution.height,
             particle.screen,
             SHARP_RADIUS,
-            particle.color * sharp_energy,
+            *color * sharp_energy,
         );
 
         splat_glow(
             &mut glow,
             particle.screen / GLOW_DOWNSAMPLE as f32,
             glow_radius / GLOW_DOWNSAMPLE as f32,
-            particle.color * glow_energy,
+            *color * glow_energy,
         );
     }
 
