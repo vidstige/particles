@@ -58,15 +58,16 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = default_theme();
+    let seconds_per_frame = 1.0 / 60.0;
     let frame_count = 512;
-    let theta = std::f32::consts::TAU / 256.0;
+    let theta = std::f32::consts::TAU / 1024.0;
     let cloud = gaussian_cloud(4096, 0.42);
     let mut rng = Rng::new(0x9abc_def0);
     let glitter_particles = glitter_particles(&mut rng, cloud.len());
     let base_colors = vec![Color::from_tiny_color(theme.foreground); cloud.len()];
     let glitter = Glitter {
-        glint_time: 3.0,
-        pause_time: 9.0,
+        glint_time: 0.2,
+        pause_time: 1.0,
     };
     let projection = projection(&resolution);
 
@@ -74,7 +75,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
         pixmap.fill(theme.background);
         let angle = frame as f32 * theta;
-        let colors = glitter_colors(&base_colors, &glitter_particles, frame as f32, glitter);
+        let time = frame as f32 * seconds_per_frame;
+        let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
         render_cloud(
             &mut pixmap,
             &cloud,
