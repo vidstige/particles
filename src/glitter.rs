@@ -1,4 +1,4 @@
-use std::f32::consts::TAU;
+use std::f32::consts::PI;
 
 use tiny_skia::Color as TinyColor;
 
@@ -6,7 +6,8 @@ use crate::{color::Color, rng::Rng};
 
 #[derive(Clone, Copy, Debug)]
 pub struct GlitterParams {
-    pub speed: f32,
+    pub glint_time: f32,
+    pub pause_time: f32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -19,20 +20,28 @@ fn mix_color(left: Color, right: Color, t: f32) -> Color {
 }
 
 fn glitter_amount(particle: GlitterParticle, time: f32, params: GlitterParams) -> f32 {
-    (time * params.speed + particle.phase)
-        .sin()
-        .max(0.0)
-        .powi(8)
+    let cycle_time = (params.glint_time + params.pause_time).max(f32::MIN_POSITIVE);
+    let glint_time = params.glint_time.max(f32::MIN_POSITIVE);
+    let cycle_phase = (time / cycle_time + particle.phase).fract() * cycle_time;
+    if cycle_phase >= params.glint_time {
+        return 0.0;
+    }
+
+    let glint_phase = (cycle_phase / glint_time).clamp(0.0, 1.0);
+    (PI * glint_phase).sin().max(0.0).powi(8)
 }
 
 pub fn default_glitter_params() -> GlitterParams {
-    GlitterParams { speed: 0.5 }
+    GlitterParams {
+        glint_time: 3.0,
+        pause_time: 9.0,
+    }
 }
 
 pub fn glitter_particles(rng: &mut Rng, count: usize) -> Vec<GlitterParticle> {
     (0..count)
         .map(|_| GlitterParticle {
-            phase: rng.next_f32_in(0.0, TAU),
+            phase: rng.next_f32(),
         })
         .collect()
 }
