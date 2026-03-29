@@ -18,12 +18,6 @@ pub struct Theme {
     pub foreground: TinyColor,
 }
 
-#[derive(Clone, Copy, Debug)]
-struct VisibleParticle {
-    screen: Vec2,
-    depth: f32,
-}
-
 fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
     (depth - focus_depth).abs() * DEPTH_BLUR_SCALE / depth_span.max(f32::MIN_POSITIVE)
 }
@@ -56,14 +50,11 @@ fn project_particle(
     resolution: &Resolution,
     view_projection: Mat4,
     view: Mat4,
-) -> Option<VisibleParticle> {
+) -> Option<Vec3> {
     let view_point = view.transform_point3(point);
     let screen = project_position(point, resolution, view_projection)?;
 
-    Some(VisibleParticle {
-        screen,
-        depth: -view_point.z,
-    })
+    Some(screen.extend(-view_point.z))
 }
 
 fn glow_dimensions(resolution: &Resolution) -> (u32, u32) {
@@ -181,15 +172,12 @@ pub fn render_cloud(
                 .map(|particle| (particle, color))
         })
         .collect();
-    particles.sort_by(|left, right| left.0.depth.total_cmp(&right.0.depth));
+    particles.sort_by(|left, right| left.0.z.total_cmp(&right.0.z));
 
-    let Some(depth_min) = particles.first().map(|(particle, _)| particle.depth) else {
+    let Some(depth_min) = particles.first().map(|(particle, _)| particle.z) else {
         return;
     };
-    let depth_max = particles
-        .last()
-        .map(|(particle, _)| particle.depth)
-        .unwrap();
+    let depth_max = particles.last().map(|(particle, _)| particle.z).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(resolution);
@@ -198,8 +186,8 @@ pub fn render_cloud(
     let pixels = pixmap.data_mut();
 
     for (particle, color) in &particles {
-        let depth_t = (particle.depth - depth_min) / depth_span;
-        let blur = blur_amount(particle.depth, focus_depth, depth_span);
+        let depth_t = (particle.z - depth_min) / depth_span;
+        let blur = blur_amount(particle.z, focus_depth, depth_span);
         let focus = focus_amount(blur);
         let near_weight = 1.15 - depth_t * 0.35;
         let sharp_energy = near_weight * focus.powi(2) * SHARP_INTENSITY;
@@ -210,14 +198,14 @@ pub fn render_cloud(
             pixels,
             resolution.width,
             resolution.height,
-            particle.screen,
+            particle.truncate(),
             SHARP_RADIUS,
             *color * sharp_energy,
         );
 
         splat_glow(
             &mut glow,
-            particle.screen / GLOW_DOWNSAMPLE as f32,
+            particle.truncate() / GLOW_DOWNSAMPLE as f32,
             glow_radius / GLOW_DOWNSAMPLE as f32,
             *color * glow_energy,
         );
