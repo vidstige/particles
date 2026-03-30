@@ -168,10 +168,10 @@ mod tests {
     use super::{blur_amount, focus_amount};
 
     #[test]
-    fn blur_amount_is_zero_at_focus_and_symmetric_around_it() {
+    fn blur_amount_is_zero_at_focus_and_scales_with_distance_from_it() {
         assert_eq!(blur_amount(4.0, 4.0, 2.0), 0.0);
-        assert_eq!(blur_amount(3.5, 4.0, 2.0), 1.0);
-        assert_eq!(blur_amount(4.5, 4.0, 2.0), 1.0);
+        assert_eq!(blur_amount(3.5, 4.0, 2.0), 0.25);
+        assert_eq!(blur_amount(4.5, 4.0, 2.0), 0.25);
     }
 
     #[test]
