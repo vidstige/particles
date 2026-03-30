@@ -190,7 +190,7 @@ pub fn render_cloud(pixmap: &mut Pixmap, positions: &[Option<Vec3>], colors: &[C
     let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(&resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
-    glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
+    glow.fill(TinyColor::TRANSPARENT);
     let pixels = pixmap.data_mut();
 
     for (particle, color) in positions.iter().copied().zip(colors.iter().copied()) {
