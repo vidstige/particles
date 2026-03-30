@@ -18,6 +18,15 @@ impl Color {
         Self { red, green, blue }
     }
 
+    pub fn add_to_pixel<const WRITE_ALPHA: bool>(self, pixel: &mut [u8]) {
+        pixel[0] = (pixel[0] as f32 + self.red).clamp(0.0, 255.0) as u8;
+        pixel[1] = (pixel[1] as f32 + self.green).clamp(0.0, 255.0) as u8;
+        pixel[2] = (pixel[2] as f32 + self.blue).clamp(0.0, 255.0) as u8;
+        if WRITE_ALPHA {
+            pixel[3] = pixel[0].max(pixel[1]).max(pixel[2]);
+        }
+    }
+
     pub fn from_tiny_color(color: TinyColor) -> Self {
         let alpha = color.alpha() * 255.0;
         Self::new(color.red(), color.green(), color.blue()) * alpha

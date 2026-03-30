@@ -53,15 +53,6 @@ fn pixmap_bounds(width: u32, height: u32, center: Vec2, radius: f32) -> (i32, i3
     (min_x, max_x, min_y, max_y)
 }
 
-fn add_color<const WRITE_ALPHA: bool>(pixel: &mut [u8], color: Color) {
-    pixel[0] = (pixel[0] as f32 + color.red).clamp(0.0, 255.0) as u8;
-    pixel[1] = (pixel[1] as f32 + color.green).clamp(0.0, 255.0) as u8;
-    pixel[2] = (pixel[2] as f32 + color.blue).clamp(0.0, 255.0) as u8;
-    if WRITE_ALPHA {
-        pixel[3] = pixel[0].max(pixel[1]).max(pixel[2]);
-    }
-}
-
 fn splat<const WRITE_ALPHA: bool>(
     pixels: &mut [u8],
     width: u32,
@@ -81,7 +72,7 @@ fn splat<const WRITE_ALPHA: bool>(
                 .max(0.0)
                 .powi(2);
             let index = y as usize * stride + x as usize * 4;
-            add_color::<WRITE_ALPHA>(&mut pixels[index..index + 4], color * weight);
+            (color * weight).add_to_pixel::<WRITE_ALPHA>(&mut pixels[index..index + 4]);
         }
     }
 }
