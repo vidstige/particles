@@ -9,7 +9,7 @@ use particles::{
     color::Color,
     distribution::{collect, Gaussian},
     glitter::{glitter_colors, glitter_particles, Glitter},
-    render::{default_theme, project_cloud, render_cloud},
+    render::{default_theme, project_cloud, render_cloud, DepthField},
     resolution::Resolution,
     rng::Rng,
 };
@@ -58,6 +58,14 @@ fn focus_depth(radius: f32) -> f32 {
     radius
 }
 
+fn depth_field(radius: f32) -> DepthField {
+    DepthField {
+        focus_depth: focus_depth(radius),
+        near_depth: radius - 2.0,
+        far_depth: radius + 2.0,
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
@@ -75,7 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let radius = 4.0;
     let projection = projection(&resolution);
-    let focus_depth = focus_depth(radius);
+    let depth_field = depth_field(radius);
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
@@ -84,7 +92,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let time = frame as f32 * seconds_per_frame;
         let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
         let positions = project_cloud(&pixmap, &cloud, projection, view(angle, radius));
-        render_cloud(&mut pixmap, &positions, &colors, focus_depth);
+        render_cloud(&mut pixmap, &positions, &colors, depth_field);
         output.write_all(pixmap.data())?;
         output.flush()?;
     }

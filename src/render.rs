@@ -18,6 +18,19 @@ pub struct Theme {
     pub foreground: TinyColor,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct DepthField {
+    pub focus_depth: f32,
+    pub near_depth: f32,
+    pub far_depth: f32,
+}
+
+impl DepthField {
+    fn span(self) -> f32 {
+        (self.far_depth - self.near_depth).max(1.0)
+    }
+}
+
 fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
     (depth - focus_depth).abs() * DEPTH_BLUR_SCALE / depth_span.max(f32::MIN_POSITIVE)
 }
@@ -172,22 +185,12 @@ pub fn render_cloud(
     pixmap: &mut Pixmap,
     positions: &[Option<Vec3>],
     colors: &[Color],
-    focus_depth: f32,
+    depth_field: DepthField,
 ) {
     assert_eq!(positions.len(), colors.len());
 
     let resolution = from_pixmap(pixmap);
-    let depths: Vec<_> = positions
-        .iter()
-        .filter_map(|particle| particle.map(|particle| particle.z))
-        .collect();
-    if depths.is_empty() {
-        return;
-    }
-
-    let depth_min = depths.iter().copied().reduce(f32::min).unwrap();
-    let depth_max = depths.iter().copied().reduce(f32::max).unwrap();
-    let depth_span = (depth_max - depth_min).max(1.0);
+    let depth_span = depth_field.span();
     let (glow_width, glow_height) = glow_dimensions(&resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::TRANSPARENT);
@@ -197,8 +200,8 @@ pub fn render_cloud(
         let Some(particle) = particle else {
             continue;
         };
-        let depth_t = (particle.z - depth_min) / depth_span;
-        let blur = blur_amount(particle.z, focus_depth, depth_span);
+        let depth_t = ((particle.z - depth_field.near_depth) / depth_span).clamp(0.0, 1.0);
+        let blur = blur_amount(particle.z, depth_field.focus_depth, depth_span);
         let focus = focus_amount(blur);
         let near_weight = 1.15 - depth_t * 0.35;
         let sharp_energy = near_weight * focus.powi(2) * SHARP_INTENSITY;
