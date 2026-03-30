@@ -54,6 +54,10 @@ fn view(angle: f32, radius: f32) -> Mat4 {
     Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
 }
 
+fn focus_depth(radius: f32) -> f32 {
+    radius
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
@@ -69,7 +73,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         glint_time: 0.2,
         pause_time: 1.0,
     };
+    let radius = 4.0;
     let projection = projection(&resolution);
+    let focus_depth = focus_depth(radius);
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
@@ -77,8 +83,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let angle = frame as f32 * theta;
         let time = frame as f32 * seconds_per_frame;
         let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
-        let positions = project_cloud(&pixmap, &cloud, projection, view(angle, 4.0));
-        render_cloud(&mut pixmap, &positions, &colors);
+        let positions = project_cloud(&pixmap, &cloud, projection, view(angle, radius));
+        render_cloud(&mut pixmap, &positions, &colors, focus_depth);
         output.write_all(pixmap.data())?;
         output.flush()?;
     }

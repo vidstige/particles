@@ -146,10 +146,6 @@ fn composite_glow(pixmap: &mut Pixmap, glow: &Pixmap) {
     );
 }
 
-fn focus_depth(depth_min: f32, depth_max: f32) -> f32 {
-    depth_min + (depth_max - depth_min) * 0.5
-}
-
 pub fn default_theme() -> Theme {
     Theme {
         background: TinyColor::from_rgba8(14, 14, 18, 255),
@@ -172,7 +168,12 @@ pub fn project_cloud(
         .collect()
 }
 
-pub fn render_cloud(pixmap: &mut Pixmap, positions: &[Option<Vec3>], colors: &[Color]) {
+pub fn render_cloud(
+    pixmap: &mut Pixmap,
+    positions: &[Option<Vec3>],
+    colors: &[Color],
+    focus_depth: f32,
+) {
     assert_eq!(positions.len(), colors.len());
 
     let resolution = from_pixmap(pixmap);
@@ -187,7 +188,6 @@ pub fn render_cloud(pixmap: &mut Pixmap, positions: &[Option<Vec3>], colors: &[C
     let depth_min = depths.iter().copied().reduce(f32::min).unwrap();
     let depth_max = depths.iter().copied().reduce(f32::max).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
-    let focus_depth = focus_depth(depth_min, depth_max);
     let (glow_width, glow_height) = glow_dimensions(&resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::TRANSPARENT);

@@ -138,7 +138,7 @@ fn clouds(rng: &mut Rng, point_count: usize, noise_scale: f32) -> Vec<Vec<Vec3>>
     ]
 }
 
-fn camera(clouds: &[Vec<Vec3>], resolution: &Resolution) -> (Mat4, Mat4) {
+fn camera(clouds: &[Vec<Vec3>], resolution: &Resolution) -> (Mat4, Mat4, f32) {
     let radius = max_radius(clouds).max(1.0);
     let eye = Vec3::new(0.0, 0.0, radius * 2.0);
     let view = Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y);
@@ -148,7 +148,7 @@ fn camera(clouds: &[Vec<Vec3>], resolution: &Resolution) -> (Mat4, Mat4) {
         0.1,
         eye.z + radius * 2.0,
     );
-    (projection, view)
+    (projection, view, eye.z)
 }
 
 pub fn render(
@@ -171,7 +171,7 @@ pub fn render(
     let tangents: Vec<_> = (0..clouds.len())
         .map(|index| tangents(&clouds, index))
         .collect();
-    let (projection, view) = camera(&clouds, resolution);
+    let (projection, view, focus_depth) = camera(&clouds, resolution);
 
     for (index, pair) in clouds.windows(2).enumerate() {
         let source = &pair[0];
@@ -185,7 +185,7 @@ pub fn render(
             let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
             pixmap.fill(theme.background);
             let positions = project_cloud(&pixmap, &cloud, projection, view);
-            render_cloud(&mut pixmap, &positions, &base_colors);
+            render_cloud(&mut pixmap, &positions, &base_colors, focus_depth);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }
