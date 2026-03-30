@@ -77,14 +77,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let angle = frame as f32 * theta;
         let time = frame as f32 * seconds_per_frame;
         let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
-        render_cloud(
-            &mut pixmap,
-            &cloud,
-            &colors,
-            &resolution,
-            projection,
-            view(angle, 4.0),
-        );
+        render_cloud(&mut pixmap, &cloud, &colors, projection, view(angle, 4.0));
         output.write_all(pixmap.data())?;
         output.flush()?;
     }

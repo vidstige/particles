@@ -26,6 +26,10 @@ fn focus_amount(blur: f32) -> f32 {
     (1.0 - blur).clamp(0.0, 1.0)
 }
 
+fn from_pixmap(pixmap: &Pixmap) -> Resolution {
+    Resolution::new(pixmap.width(), pixmap.height())
+}
+
 fn project_clip(clip: Vec4, resolution: &Resolution) -> Option<Vec2> {
     if clip.w <= 0.0 {
         return None;
@@ -157,17 +161,17 @@ pub fn render_cloud(
     pixmap: &mut Pixmap,
     positions: &[Vec3],
     colors: &[Color],
-    resolution: &Resolution,
     projection: Mat4,
     view: Mat4,
 ) {
     assert_eq!(positions.len(), colors.len());
 
+    let resolution = from_pixmap(pixmap);
     let view_projection = projection * view;
     let projected_positions: Vec<_> = positions
         .iter()
         .copied()
-        .map(|point| project_particle(point, resolution, view_projection, view))
+        .map(|point| project_particle(point, &resolution, view_projection, view))
         .collect();
 
     let depths: Vec<_> = projected_positions
@@ -182,7 +186,7 @@ pub fn render_cloud(
     let depth_max = depths.iter().copied().reduce(f32::max).unwrap();
     let depth_span = (depth_max - depth_min).max(1.0);
     let focus_depth = focus_depth(depth_min, depth_max);
-    let (glow_width, glow_height) = glow_dimensions(resolution);
+    let (glow_width, glow_height) = glow_dimensions(&resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
     let pixels = pixmap.data_mut();

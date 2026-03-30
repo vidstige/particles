@@ -184,14 +184,7 @@ pub fn render(
             let cloud = interpolate_cloud(&segment, t);
             let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
             pixmap.fill(theme.background);
-            render_cloud(
-                &mut pixmap,
-                &cloud,
-                &base_colors,
-                resolution,
-                projection,
-                view,
-            );
+            render_cloud(&mut pixmap, &cloud, &base_colors, projection, view);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }
