@@ -5,7 +5,6 @@ use tiny_skia::{BlendMode, Color as TinyColor, FilterQuality, Pixmap, PixmapPain
 
 const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
-const DEPTH_BLUR_SCALE: f32 = 4.0;
 const SHARP_RADIUS: f32 = 1.25;
 const SHARP_INTENSITY: f32 = 1.35;
 
@@ -21,18 +20,17 @@ pub struct Theme {
 #[derive(Clone, Copy, Debug)]
 pub struct DepthField {
     pub focus_depth: f32,
-    pub near_depth: f32,
-    pub far_depth: f32,
+    pub blur_depth: f32,
 }
 
 impl DepthField {
-    fn span(self) -> f32 {
-        (self.far_depth - self.near_depth).max(1.0)
+    fn blur_depth(self) -> f32 {
+        self.blur_depth.max(f32::MIN_POSITIVE)
     }
 }
 
-fn blur_amount(depth: f32, focus_depth: f32, depth_span: f32) -> f32 {
-    (depth - focus_depth).abs() * DEPTH_BLUR_SCALE / depth_span.max(f32::MIN_POSITIVE)
+fn blur_amount(depth: f32, focus_depth: f32, blur_depth: f32) -> f32 {
+    (depth - focus_depth).abs() / blur_depth.max(f32::MIN_POSITIVE)
 }
 
 fn focus_amount(blur: f32) -> f32 {
@@ -190,7 +188,7 @@ pub fn render_cloud(
     assert_eq!(positions.len(), colors.len());
 
     let resolution = from_pixmap(pixmap);
-    let depth_span = depth_field.span();
+    let blur_depth = depth_field.blur_depth();
     let (glow_width, glow_height) = glow_dimensions(&resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::TRANSPARENT);
@@ -200,12 +198,10 @@ pub fn render_cloud(
         let Some(particle) = particle else {
             continue;
         };
-        let depth_t = ((particle.z - depth_field.near_depth) / depth_span).clamp(0.0, 1.0);
-        let blur = blur_amount(particle.z, depth_field.focus_depth, depth_span);
+        let blur = blur_amount(particle.z, depth_field.focus_depth, blur_depth);
         let focus = focus_amount(blur);
-        let near_weight = 1.15 - depth_t * 0.35;
-        let sharp_energy = near_weight * focus.powi(2) * SHARP_INTENSITY;
-        let glow_energy = near_weight * (0.05 + blur * 0.5);
+        let sharp_energy = focus.powi(2) * SHARP_INTENSITY;
+        let glow_energy = 0.05 + blur.min(1.0) * 0.5;
         let glow_radius = 0.5 + GLOW_RADIUS * blur;
 
         splat_sharp(

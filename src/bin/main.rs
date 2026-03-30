@@ -61,8 +61,7 @@ fn focus_depth(radius: f32) -> f32 {
 fn depth_field(radius: f32) -> DepthField {
     DepthField {
         focus_depth: focus_depth(radius),
-        near_depth: radius - 2.0,
-        far_depth: radius + 2.0,
+        blur_depth: 1.0,
     }
 }
 
