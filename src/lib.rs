@@ -5,6 +5,7 @@ pub mod distribution;
 pub mod glitter;
 pub mod lerp;
 pub mod point_cloud;
+pub mod projection;
 pub mod render;
 pub mod resolution;
 pub mod rng;

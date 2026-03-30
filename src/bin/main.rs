@@ -9,7 +9,8 @@ use particles::{
     color::Color,
     distribution::{collect, Gaussian},
     glitter::{glitter_colors, glitter_particles, Glitter},
-    render::{default_theme, project_cloud, render_cloud, DepthField},
+    projection::project_cloud,
+    render::{default_theme, render_cloud, DepthField},
     resolution::Resolution,
     rng::Rng,
 };
@@ -54,17 +55,6 @@ fn view(angle: f32, radius: f32) -> Mat4 {
     Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
 }
 
-fn focus_depth(radius: f32) -> f32 {
-    radius
-}
-
-fn depth_field(radius: f32) -> DepthField {
-    DepthField {
-        focus_depth: focus_depth(radius),
-        blur_depth: 1.0,
-    }
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
@@ -82,7 +72,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let radius = 4.0;
     let projection = projection(&resolution);
-    let depth_field = depth_field(radius);
+    let depth_field = DepthField {
+        focus_depth: radius,
+        blur_depth: 1.0,
+    };
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();

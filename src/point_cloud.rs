@@ -11,7 +11,8 @@ use crate::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
         Tetrahedron, TorusSurface, UniformCube,
     },
-    render::{project_cloud, render_cloud, DepthField, Theme},
+    projection::project_cloud,
+    render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     rng::Rng,
 };
