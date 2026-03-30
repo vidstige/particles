@@ -11,7 +11,7 @@ use crate::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
         Tetrahedron, TorusSurface, UniformCube,
     },
-    render::{render_cloud, Theme},
+    render::{project_cloud, render_cloud, Theme},
     resolution::Resolution,
     rng::Rng,
 };
@@ -184,7 +184,8 @@ pub fn render(
             let cloud = interpolate_cloud(&segment, t);
             let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
             pixmap.fill(theme.background);
-            render_cloud(&mut pixmap, &cloud, &base_colors, projection, view);
+            let positions = project_cloud(&pixmap, &cloud, projection, view);
+            render_cloud(&mut pixmap, &positions, &base_colors);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }

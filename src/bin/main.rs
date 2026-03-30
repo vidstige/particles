@@ -9,7 +9,7 @@ use particles::{
     color::Color,
     distribution::{collect, Gaussian},
     glitter::{glitter_colors, glitter_particles, Glitter},
-    render::{default_theme, render_cloud},
+    render::{default_theme, project_cloud, render_cloud},
     resolution::Resolution,
     rng::Rng,
 };
@@ -77,7 +77,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         let angle = frame as f32 * theta;
         let time = frame as f32 * seconds_per_frame;
         let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
-        render_cloud(&mut pixmap, &cloud, &colors, projection, view(angle, 4.0));
+        let positions = project_cloud(&pixmap, &cloud, projection, view(angle, 4.0));
+        render_cloud(&mut pixmap, &positions, &colors);
         output.write_all(pixmap.data())?;
         output.flush()?;
     }

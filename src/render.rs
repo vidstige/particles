@@ -157,24 +157,26 @@ pub fn default_theme() -> Theme {
     }
 }
 
-pub fn render_cloud(
-    pixmap: &mut Pixmap,
+pub fn project_cloud(
+    pixmap: &Pixmap,
     positions: &[Vec3],
-    colors: &[Color],
     projection: Mat4,
     view: Mat4,
-) {
-    assert_eq!(positions.len(), colors.len());
-
+) -> Vec<Option<Vec3>> {
     let resolution = from_pixmap(pixmap);
     let view_projection = projection * view;
-    let projected_positions: Vec<_> = positions
+    positions
         .iter()
         .copied()
         .map(|point| project_particle(point, &resolution, view_projection, view))
-        .collect();
+        .collect()
+}
 
-    let depths: Vec<_> = projected_positions
+pub fn render_cloud(pixmap: &mut Pixmap, positions: &[Option<Vec3>], colors: &[Color]) {
+    assert_eq!(positions.len(), colors.len());
+
+    let resolution = from_pixmap(pixmap);
+    let depths: Vec<_> = positions
         .iter()
         .filter_map(|particle| particle.map(|particle| particle.z))
         .collect();
@@ -191,7 +193,7 @@ pub fn render_cloud(
     glow.fill(TinyColor::from_rgba8(0, 0, 0, 0));
     let pixels = pixmap.data_mut();
 
-    for (particle, color) in projected_positions.iter().zip(colors.iter().copied()) {
+    for (particle, color) in positions.iter().copied().zip(colors.iter().copied()) {
         let Some(particle) = particle else {
             continue;
         };
