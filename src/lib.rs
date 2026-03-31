@@ -2,6 +2,7 @@ pub mod assignment;
 pub mod color;
 pub mod cubic_hermite3;
 pub mod distribution;
+pub mod gerstner;
 pub mod glitter;
 pub mod lerp;
 pub mod point_cloud;
