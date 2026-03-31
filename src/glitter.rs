@@ -27,14 +27,17 @@ fn glitter_amount(particle: GlitterParams, time: f32, glitter: Glitter) -> f32 {
     (PI * glint_phase).sin().max(0.0).powi(8)
 }
 
+fn lerp(left: f32, right: f32, t: f32) -> f32 {
+    left * (1.0 - t) + right * t
+}
+
 fn lerp_color(left: TinyColor, right: TinyColor, t: f32) -> TinyColor {
     let t = t.clamp(0.0, 1.0);
-    let lerp = |left: f32, right: f32| left * (1.0 - t) + right * t;
     TinyColor::from_rgba(
-        lerp(left.red(), right.red()),
-        lerp(left.green(), right.green()),
-        lerp(left.blue(), right.blue()),
-        lerp(left.alpha(), right.alpha()),
+        lerp(left.red(), right.red(), t),
+        lerp(left.green(), right.green(), t),
+        lerp(left.blue(), right.blue(), t),
+        lerp(left.alpha(), right.alpha(), t),
     )
     .unwrap()
 }
