@@ -2,7 +2,7 @@ use std::f32::consts::PI;
 
 use tiny_skia::Color as TinyColor;
 
-use crate::{color::Color, lerp::lerp, rng::Rng};
+use crate::rng::Rng;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Glitter {
@@ -27,6 +27,18 @@ fn glitter_amount(particle: GlitterParams, time: f32, glitter: Glitter) -> f32 {
     (PI * glint_phase).sin().max(0.0).powi(8)
 }
 
+fn lerp_color(left: TinyColor, right: TinyColor, t: f32) -> TinyColor {
+    let t = t.clamp(0.0, 1.0);
+    let lerp = |left: f32, right: f32| left * (1.0 - t) + right * t;
+    TinyColor::from_rgba(
+        lerp(left.red(), right.red()),
+        lerp(left.green(), right.green()),
+        lerp(left.blue(), right.blue()),
+        lerp(left.alpha(), right.alpha()),
+    )
+    .unwrap()
+}
+
 pub fn glitter_particles(rng: &mut Rng, count: usize) -> Vec<GlitterParams> {
     (0..count)
         .map(|_| GlitterParams {
@@ -36,20 +48,20 @@ pub fn glitter_particles(rng: &mut Rng, count: usize) -> Vec<GlitterParams> {
 }
 
 pub fn glitter_colors(
-    base_colors: &[Color],
+    base_colors: &[TinyColor],
     particles: &[GlitterParams],
     time: f32,
     glitter: Glitter,
-) -> Vec<Color> {
+) -> Vec<TinyColor> {
     assert_eq!(base_colors.len(), particles.len());
 
-    let glitter_tint = Color::from_tiny_color(TinyColor::WHITE);
+    let glitter_tint = TinyColor::WHITE;
     base_colors
         .iter()
         .zip(particles)
         .map(|(base_color, particle)| {
             let amount = glitter_amount(*particle, time, glitter);
-            lerp(*base_color, glitter_tint, amount)
+            lerp_color(*base_color, glitter_tint, amount)
         })
         .collect()
 }

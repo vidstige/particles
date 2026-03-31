@@ -6,7 +6,6 @@ use std::{
 
 use glam::{Mat4, Vec2, Vec3};
 use particles::{
-    color::Color,
     gerstner::{surface_grid, update_positions, GerstnerWave},
     glitter::{glitter_colors, glitter_particles, Glitter},
     projection::project_cloud,
@@ -73,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let waves = water_waves();
     let mut rng = Rng::new(0x9abc_def0);
     let glitter_particles = glitter_particles(&mut rng, rest_positions.len());
-    let base_colors = vec![Color::from_tiny_color(theme.foreground); rest_positions.len()];
+    let base_colors = vec![theme.foreground; rest_positions.len()];
     let glitter = Glitter {
         glint_time: 0.2,
         pause_time: 1.0,
@@ -93,17 +92,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let angle = frame as f32 * theta;
         let time = frame as f32 * seconds_per_frame;
         update_positions(&mut positions, &rest_positions, &waves, time);
-        let colors: Vec<_> = glitter_colors(&base_colors, &glitter_particles, time, glitter)
-            .into_iter()
-            .map(|color| {
-                tiny_skia::Color::from_rgba8(
-                    color.red.clamp(0.0, 255.0) as u8,
-                    color.green.clamp(0.0, 255.0) as u8,
-                    color.blue.clamp(0.0, 255.0) as u8,
-                    255,
-                )
-            })
-            .collect();
+        let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
         let projected = project_cloud(&pixmap, &positions, projection, view(angle, radius, height));
         render_cloud(&mut pixmap, &projected, &colors, depth_field);
         output.write_all(pixmap.data())?;
