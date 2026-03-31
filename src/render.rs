@@ -21,13 +21,10 @@ fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
-fn with_alpha(color: TinyColor, alpha: u8) -> TinyColor {
-    TinyColor::from_rgba8(
-        (color.red() * 255.0) as u8,
-        (color.green() * 255.0) as u8,
-        (color.blue() * 255.0) as u8,
-        alpha,
-    )
+fn with_alpha(color: TinyColor, alpha: f32) -> TinyColor {
+    let mut tmp = color.clone();
+    tmp.set_alpha(alpha);
+    tmp
 }
 
 fn draw_disk(pixmap: &mut Pixmap, center: Vec2, radius: f32, color: TinyColor) {
@@ -69,8 +66,7 @@ pub fn render_cloud(
         };
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
         let radius = PARTICLE_RADIUS + blur * focal_distance;
-        let energy = circle_area(PARTICLE_RADIUS) / circle_area(radius);
-        let alpha = (255.0 * energy).clamp(0.0, 255.0) as u8;
+        let alpha = circle_area(PARTICLE_RADIUS) / circle_area(radius);
         draw_disk(
             pixmap,
             particle.truncate(),
