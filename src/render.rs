@@ -70,8 +70,8 @@ pub fn render_cloud(
         };
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
         let radius = PARTICLE_RADIUS + blur * focal_distance;
-        let alpha =
-            (255.0 * circle_area(PARTICLE_RADIUS) / circle_area(radius)).clamp(0.0, 255.0) as u8;
+        let energy = circle_area(PARTICLE_RADIUS) / circle_area(radius);
+        let alpha = (255.0 * energy).clamp(0.0, 255.0) as u8;
         draw_disk(
             pixmap,
             particle.truncate(),
