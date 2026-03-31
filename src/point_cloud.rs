@@ -5,7 +5,6 @@ use tiny_skia::Pixmap;
 
 use crate::{
     assignment::auction_assignment,
-    color::Color,
     cubic_hermite3::CubicHermite3,
     distribution::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
@@ -171,7 +170,7 @@ pub fn render(
     let segment_frames = 32;
     let linger_power = 2.5;
     let mut clouds = clouds(&mut rng, point_count, noise_scale);
-    let base_colors = vec![Color::from_tiny_color(theme.foreground); point_count];
+    let colors = vec![theme.foreground; point_count];
 
     for index in 1..clouds.len() {
         clouds[index] = match_positions(&clouds[index - 1], &clouds[index], epsilon);
@@ -193,7 +192,7 @@ pub fn render(
             let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
             pixmap.fill(theme.background);
             let positions = project_cloud(&pixmap, &cloud, projection, view);
-            render_cloud(&mut pixmap, &positions, &base_colors, depth_field);
+            render_cloud(&mut pixmap, &positions, &colors, depth_field);
             output.write_all(pixmap.data())?;
             output.flush()?;
         }

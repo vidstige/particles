@@ -93,7 +93,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         let angle = frame as f32 * theta;
         let time = frame as f32 * seconds_per_frame;
         update_positions(&mut positions, &rest_positions, &waves, time);
-        let colors = glitter_colors(&base_colors, &glitter_particles, time, glitter);
+        let colors: Vec<_> = glitter_colors(&base_colors, &glitter_particles, time, glitter)
+            .into_iter()
+            .map(|color| {
+                tiny_skia::Color::from_rgba8(
+                    color.red.clamp(0.0, 255.0) as u8,
+                    color.green.clamp(0.0, 255.0) as u8,
+                    color.blue.clamp(0.0, 255.0) as u8,
+                    255,
+                )
+            })
+            .collect();
         let projected = project_cloud(&pixmap, &positions, projection, view(angle, radius, height));
         render_cloud(&mut pixmap, &projected, &colors, depth_field);
         output.write_all(pixmap.data())?;

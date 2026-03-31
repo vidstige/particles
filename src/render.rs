@@ -1,6 +1,5 @@
 use glam::{Vec2, Vec3};
 
-use crate::color::Color;
 use tiny_skia::{BlendMode, Color as TinyColor, FillRule, Paint, PathBuilder, Pixmap, Transform};
 
 const FOREGROUND_ALPHA: u8 = 96;
@@ -22,11 +21,11 @@ fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
-fn tiny_color(color: Color, alpha: u8) -> TinyColor {
+fn with_alpha(color: TinyColor, alpha: u8) -> TinyColor {
     TinyColor::from_rgba8(
-        color.red.clamp(0.0, 255.0) as u8,
-        color.green.clamp(0.0, 255.0) as u8,
-        color.blue.clamp(0.0, 255.0) as u8,
+        (color.red() * 255.0) as u8,
+        (color.green() * 255.0) as u8,
+        (color.blue() * 255.0) as u8,
         alpha,
     )
 }
@@ -57,7 +56,7 @@ pub fn default_theme() -> Theme {
 pub fn render_cloud(
     pixmap: &mut Pixmap,
     positions: &[Option<Vec3>],
-    colors: &[Color],
+    colors: &[TinyColor],
     depth_field: DepthField,
 ) {
     assert_eq!(positions.len(), colors.len());
@@ -76,7 +75,7 @@ pub fn render_cloud(
             pixmap,
             particle.truncate(),
             radius,
-            tiny_color(color, alpha),
+            with_alpha(color, alpha),
         );
     }
 }
