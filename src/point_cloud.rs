@@ -154,7 +154,7 @@ fn camera(clouds: &[Vec<Vec3>], resolution: &Resolution) -> (Mat4, Mat4, DepthFi
         view,
         DepthField {
             focus_depth: eye.z,
-            blur_depth: radius * 0.5,
+            blur: radius * 0.5,
         },
     )
 }

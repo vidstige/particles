@@ -5,11 +5,8 @@ use tiny_skia::{BlendMode, Color as TinyColor, FilterQuality, Pixmap, PixmapPain
 
 const FOREGROUND_ALPHA: u8 = 96;
 const GLOW_DOWNSAMPLE: u32 = 2;
-const SHARP_RADIUS: f32 = 1.25;
-const SHARP_INTENSITY: f32 = 1.35;
-
-const GLOW_RADIUS: f32 = 6.5;
-const GLOW_INTENSITY: f32 = 0.65;
+const PARTICLE_RADIUS: f32 = 1.0;
+const GLOW_INTENSITY: f32 = 0.85;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
@@ -20,15 +17,11 @@ pub struct Theme {
 #[derive(Clone, Copy, Debug)]
 pub struct DepthField {
     pub focus_depth: f32,
-    pub blur_depth: f32,
+    pub blur: f32,
 }
 
-fn blur_amount(depth: f32, focus_depth: f32, blur_depth: f32) -> f32 {
-    (depth - focus_depth).abs() / blur_depth.max(f32::MIN_POSITIVE)
-}
-
-fn focus_amount(blur: f32) -> f32 {
-    (1.0 - blur).clamp(0.0, 1.0)
+fn area(radius: f32) -> f32 {
+    std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
 fn from_pixmap(pixmap: &Pixmap) -> Resolution {
@@ -127,7 +120,7 @@ pub fn render_cloud(
     assert_eq!(positions.len(), colors.len());
 
     let resolution = from_pixmap(pixmap);
-    let blur_depth = depth_field.blur_depth.max(f32::MIN_POSITIVE);
+    let blur = depth_field.blur;
     let (glow_width, glow_height) = glow_dimensions(&resolution);
     let mut glow = Pixmap::new(glow_width, glow_height).unwrap();
     glow.fill(TinyColor::TRANSPARENT);
@@ -137,48 +130,28 @@ pub fn render_cloud(
         let Some(particle) = particle else {
             continue;
         };
-        let blur = blur_amount(particle.z, depth_field.focus_depth, blur_depth);
-        let focus = focus_amount(blur);
-        let sharp_energy = focus.powi(2) * SHARP_INTENSITY;
-        let glow_energy = 0.05 + blur.min(1.0) * 0.5;
-        let glow_radius = 0.5 + GLOW_RADIUS * blur;
+        let focal_distance = (particle.z - depth_field.focus_depth).abs();
+        let radius = PARTICLE_RADIUS + blur * focal_distance;
+        let color = color * (area(PARTICLE_RADIUS) / area(radius));
 
-        splat_sharp(
-            pixels,
-            resolution.width,
-            resolution.height,
-            particle.truncate(),
-            SHARP_RADIUS,
-            color * sharp_energy,
-        );
-
-        splat_glow(
-            &mut glow,
-            particle.truncate() / GLOW_DOWNSAMPLE as f32,
-            glow_radius / GLOW_DOWNSAMPLE as f32,
-            color * glow_energy,
-        );
+        if radius < GLOW_DOWNSAMPLE as f32 {
+            splat_sharp(
+                pixels,
+                resolution.width,
+                resolution.height,
+                particle.truncate(),
+                radius,
+                color,
+            );
+        } else {
+            splat_glow(
+                &mut glow,
+                particle.truncate() / GLOW_DOWNSAMPLE as f32,
+                radius / GLOW_DOWNSAMPLE as f32,
+                color,
+            );
+        }
     }
 
     composite_glow(pixmap, &glow);
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{blur_amount, focus_amount};
-
-    #[test]
-    fn blur_amount_is_zero_at_focus_and_scales_with_distance_from_it() {
-        assert_eq!(blur_amount(4.0, 4.0, 2.0), 0.0);
-        assert_eq!(blur_amount(3.5, 4.0, 2.0), 0.25);
-        assert_eq!(blur_amount(4.5, 4.0, 2.0), 0.25);
-    }
-
-    #[test]
-    fn focus_amount_fades_out_once_blur_reaches_one() {
-        assert_eq!(focus_amount(0.0), 1.0);
-        assert_eq!(focus_amount(0.25), 0.75);
-        assert_eq!(focus_amount(1.0), 0.0);
-        assert_eq!(focus_amount(2.0), 0.0);
-    }
 }

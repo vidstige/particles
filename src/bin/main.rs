@@ -74,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let projection = projection(&resolution);
     let depth_field = DepthField {
         focus_depth: radius,
-        blur_depth: 1.0,
+        blur: 1.0,
     };
 
     for frame in 0..frame_count {
