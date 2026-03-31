@@ -2,7 +2,6 @@ use glam::{Vec2, Vec3};
 
 use tiny_skia::{BlendMode, Color as TinyColor, FillRule, Paint, PathBuilder, Pixmap, Transform};
 
-const FOREGROUND_ALPHA: u8 = 96;
 const PARTICLE_RADIUS: f32 = 1.0;
 
 #[derive(Clone, Copy, Debug)]
@@ -46,7 +45,7 @@ fn draw_disk(pixmap: &mut Pixmap, center: Vec2, radius: f32, color: TinyColor) {
 pub fn default_theme() -> Theme {
     Theme {
         background: TinyColor::from_rgba8(14, 14, 18, 255),
-        foreground: TinyColor::from_rgba8(214, 92, 255, FOREGROUND_ALPHA),
+        foreground: TinyColor::from_rgba8(214, 92, 255, 255),
     }
 }
 
