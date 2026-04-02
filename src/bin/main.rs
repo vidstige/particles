@@ -53,9 +53,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         focus_depth: 4.0,
         blur: 8.0,
     };
+    let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
 
-    for frame in 0..frame_count {
-        let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+    for frame in 0..frame_count {        
         pixmap.fill(theme.background);
         let time = frame as f32 * seconds_per_frame;
         let positions = timeline.particles(time);
