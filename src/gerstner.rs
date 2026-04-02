@@ -38,7 +38,7 @@ fn wave_offset(wave: GerstnerWave, position: Vec2, time: f32) -> Vec3 {
     Vec3::new(horizontal.x, wave.amplitude * phase.sin(), horizontal.y)
 }
 
-fn displaced_position(rest_position: Vec3, waves: &[GerstnerWave], time: f32) -> Vec3 {
+pub fn displaced_position(rest_position: Vec3, waves: &[GerstnerWave], time: f32) -> Vec3 {
     let position = Vec2::new(rest_position.x, rest_position.z);
     let mut displaced = rest_position;
 
@@ -69,32 +69,9 @@ pub fn surface_grid(columns: usize, rows: usize, size: Vec2) -> Vec<Vec3> {
     positions
 }
 
-pub fn displaced_positions(
-    rest_positions: &[Vec3],
-    waves: &[GerstnerWave],
-    time: f32,
-) -> Vec<Vec3> {
-    let mut positions = vec![Vec3::ZERO; rest_positions.len()];
-    update_positions(&mut positions, rest_positions, waves, time);
-    positions
-}
-
-pub fn update_positions(
-    positions: &mut [Vec3],
-    rest_positions: &[Vec3],
-    waves: &[GerstnerWave],
-    time: f32,
-) {
-    assert_eq!(positions.len(), rest_positions.len());
-
-    for (position, rest_position) in positions.iter_mut().zip(rest_positions.iter().copied()) {
-        *position = displaced_position(rest_position, waves, time);
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{displaced_positions, surface_grid, update_positions, GerstnerWave};
+    use super::{displaced_position, surface_grid, GerstnerWave};
     use glam::{Vec2, Vec3};
 
     #[test]
@@ -113,36 +90,29 @@ mod tests {
     }
 
     #[test]
-    fn update_positions_leaves_rest_positions_unchanged_without_waves() {
-        let rest_positions = vec![Vec3::new(-1.0, 0.5, 2.0), Vec3::new(3.0, -0.25, -4.0)];
+    fn displaced_position_leaves_rest_position_unchanged_without_waves() {
+        let rest_position = Vec3::new(-1.0, 0.5, 2.0);
 
-        assert_eq!(
-            displaced_positions(&rest_positions, &[], 1.5),
-            rest_positions
-        );
+        assert_eq!(displaced_position(rest_position, &[], 1.5), rest_position);
     }
 
     #[test]
     fn gerstner_waves_displace_points_sideways_as_well_as_upwards() {
-        let rest_positions = vec![Vec3::ZERO];
         let wave = GerstnerWave::new(Vec2::X, 0.5, 4.0, 1.0, 0.75, 0.0);
 
         assert_eq!(
-            displaced_positions(&rest_positions, &[wave], 0.0),
-            vec![Vec3::new(0.375, 0.0, 0.0)]
+            displaced_position(Vec3::ZERO, &[wave], 0.0),
+            Vec3::new(0.375, 0.0, 0.0)
         );
     }
 
     #[test]
-    fn update_positions_uses_rest_positions_instead_of_accumulating_drift() {
-        let rest_positions = vec![Vec3::new(0.5, 0.0, -0.25)];
+    fn displaced_position_uses_rest_position_instead_of_accumulating_drift() {
+        let rest_position = Vec3::new(0.5, 0.0, -0.25);
         let wave = GerstnerWave::new(Vec2::new(1.0, 1.0), 0.4, 3.0, 0.8, 0.6, 0.2);
-        let mut positions = vec![Vec3::ZERO; rest_positions.len()];
+        let first = displaced_position(rest_position, &[wave], 0.75);
+        let second = displaced_position(rest_position, &[wave], 0.75);
 
-        update_positions(&mut positions, &rest_positions, &[wave], 0.75);
-        let first = positions.clone();
-        update_positions(&mut positions, &rest_positions, &[wave], 0.75);
-
-        assert_eq!(positions, first);
+        assert_eq!(second, first);
     }
 }

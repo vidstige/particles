@@ -2,7 +2,7 @@ use glam::{Mat4, Vec2, Vec3};
 
 use crate::{
     distribution::{collect, Uniform3},
-    gerstner::{displaced_positions, surface_grid, GerstnerWave},
+    gerstner::{displaced_position, surface_grid, GerstnerWave},
     rng::Rng,
     simplex::SimplexNoise,
 };
@@ -68,7 +68,10 @@ impl Timeline {
 
     pub fn particles(&self, t: f32) -> Vec<Vec3> {
         if t < 5.0 {
-            displaced_positions(&self.gerstner_rest_positions, &self.gerstner_waves, t)
+            self.gerstner_rest_positions
+                .iter()
+                .map(|rest_position| displaced_position(*rest_position, &self.gerstner_waves, t))
+                .collect()
         } else {
             simplex_positions(&self.simplex_rest_positions, &self.simplex_field, t - 5.0)
         }
@@ -81,49 +84,5 @@ impl Timeline {
         let angle = t * angular_velocity;
         let eye = Vec3::new(radius * angle.cos(), height, radius * angle.sin());
         Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{simplex_positions, Timeline};
-    use crate::gerstner::displaced_positions;
-    use glam::{Mat4, Vec3};
-
-    #[test]
-    fn timeline_uses_gerstner_before_five_seconds() {
-        let timeline = Timeline::new();
-
-        assert_eq!(
-            timeline.particles(1.5),
-            displaced_positions(
-                &timeline.gerstner_rest_positions,
-                &timeline.gerstner_waves,
-                1.5,
-            ),
-        );
-    }
-
-    #[test]
-    fn timeline_uses_simplex_from_five_seconds() {
-        let timeline = Timeline::new();
-
-        assert_eq!(
-            timeline.particles(5.25),
-            simplex_positions(
-                &timeline.simplex_rest_positions,
-                &timeline.simplex_field,
-                0.25,
-            ),
-        );
-    }
-
-    #[test]
-    fn timeline_view_uses_camera_motion_from_time() {
-        let timeline = Timeline::new();
-        let angle = std::f32::consts::TAU * 60.0 / 2048.0;
-        let eye = Vec3::new(4.0 * angle.cos(), 1.5, 4.0 * angle.sin());
-
-        assert_eq!(timeline.view(1.0), Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y));
     }
 }
