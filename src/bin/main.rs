@@ -59,7 +59,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         pixmap.fill(theme.background);
         let time = frame as f32 * seconds_per_frame;
         let positions = timeline.particles(time);
-        let projected = project_cloud(&pixmap, &positions, projection, timeline.view(time));
+        let view = timeline.view(time);
+        let projected = project_cloud(&pixmap, &positions, projection, view);
         render_cloud(&mut pixmap, &projected, &colors, depth_field);
         output.write_all(pixmap.data())?;
         output.flush()?;
