@@ -6,12 +6,15 @@ use std::{
 
 use glam::{Mat4, Vec2, Vec3};
 use particles::{
+    distribution::{collect, Uniform3},
     gerstner::{surface_grid, update_positions, GerstnerWave},
     glitter::{glitter_colors, glitter_particles, Glitter},
+    point_cloud,
     projection::project_cloud,
-    render::{default_theme, render_cloud, DepthField},
+    render::{default_theme, render_cloud, DepthField, Theme},
     resolution::Resolution,
     rng::Rng,
+    simplex::SimplexNoise,
 };
 use tiny_skia::Pixmap;
 
@@ -60,10 +63,77 @@ fn view(angle: f32, radius: f32, height: f32) -> Mat4 {
     Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let mut output = io::stdout().lock();
-    let resolution = resolution()?;
-    let theme = default_theme();
+fn simplex_base_cloud(point_count: usize, rng: &mut Rng) -> Vec<Vec3> {
+    collect(&mut Uniform3::new(), point_count, rng)
+}
+
+fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, time: f32) -> Vec3 {
+    Vec3::new(
+        field[0].sample(point.extend(time)),
+        field[1].sample(point.extend(time + 7.0)),
+        field[2].sample(point.extend(time + 13.0)),
+    )
+}
+
+fn update_simplex_positions(
+    positions: &mut [Vec3],
+    rest_positions: &[Vec3],
+    field: &[SimplexNoise; 3],
+    time: f32,
+) {
+    for (position, rest_position) in positions.iter_mut().zip(rest_positions) {
+        let drift = simplex_offset(field, *rest_position, time) * 0.45;
+        *position = *rest_position + drift;
+    }
+}
+
+fn render_simplex(
+    output: &mut impl Write,
+    resolution: &Resolution,
+    theme: &Theme,
+) -> Result<(), Box<dyn Error>> {
+    let seconds_per_frame = 1.0 / 60.0;
+    let frame_count = 512;
+    let theta = std::f32::consts::TAU / 2048.0;
+    let mut rng = Rng::new(0x1234_5678);
+    let point_count = 4096;
+    let rest_positions = simplex_base_cloud(point_count, &mut rng);
+    let mut positions = vec![Vec3::ZERO; rest_positions.len()];
+    let field = [
+        SimplexNoise::new(0x1f2e_3d4c, 1.4, 1.0),
+        SimplexNoise::new(0x2a39_4857, 1.4, 1.0),
+        SimplexNoise::new(0x6574_8392, 1.4, 1.0),
+    ];
+    let colors = vec![theme.foreground; point_count];
+    let radius = 3.2;
+    let height = 1.2;
+    let projection = projection(resolution);
+    let focus_depth = Vec2::new(radius, height).length();
+    let depth_field = DepthField {
+        focus_depth,
+        blur: 5.0,
+    };
+
+    for frame in 0..frame_count {
+        let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+        pixmap.fill(theme.background);
+        let angle = frame as f32 * theta;
+        let time = frame as f32 * seconds_per_frame * 0.35;
+        update_simplex_positions(&mut positions, &rest_positions, &field, time);
+        let projected = project_cloud(&pixmap, &positions, projection, view(angle, radius, height));
+        render_cloud(&mut pixmap, &projected, &colors, depth_field);
+        output.write_all(pixmap.data())?;
+        output.flush()?;
+    }
+
+    Ok(())
+}
+
+fn render_water(
+    output: &mut impl Write,
+    resolution: &Resolution,
+    theme: &Theme,
+) -> Result<(), Box<dyn Error>> {
     let seconds_per_frame = 1.0 / 60.0;
     let frame_count = 512;
     let theta = std::f32::consts::TAU / 2048.0;
@@ -100,4 +170,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     Ok(())
+}
+
+fn scene() -> Result<String, Box<dyn Error>> {
+    match env::var("SCENE") {
+        Ok(value) => Ok(value),
+        Err(env::VarError::NotPresent) => Ok("simplex".to_string()),
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut output = io::stdout().lock();
+    let resolution = resolution()?;
+    let theme = default_theme();
+
+    match scene()?.as_str() {
+        "point_cloud" => point_cloud::render(&mut output, &resolution, &theme),
+        "simplex" => render_simplex(&mut output, &resolution, &theme),
+        "water" => render_water(&mut output, &resolution, &theme),
+        value => Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            format!("unknown SCENE: {value}"),
+        )
+        .into()),
+    }
 }

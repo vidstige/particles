@@ -9,7 +9,7 @@ mod lissajous;
 mod sphere;
 mod tetrahedron;
 mod torus_surface;
-mod uniform_cube;
+mod uniform3;
 
 use glam::Vec3;
 
@@ -26,7 +26,7 @@ pub use lissajous::Lissajous;
 pub use sphere::Sphere;
 pub use tetrahedron::Tetrahedron;
 pub use torus_surface::TorusSurface;
-pub use uniform_cube::UniformCube;
+pub use uniform3::Uniform3;
 
 fn sphere_point(radius: f32, z: f32, angle: f32) -> Vec3 {
     let ring = (1.0 - z * z).sqrt() * radius;
