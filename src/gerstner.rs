@@ -40,13 +40,13 @@ fn wave_offset(wave: GerstnerWave, position: Vec2, time: f32) -> Vec3 {
 
 pub fn displaced_position(rest_position: Vec3, waves: &[GerstnerWave], time: f32) -> Vec3 {
     let position = Vec2::new(rest_position.x, rest_position.z);
-    let mut displaced = rest_position;
 
-    for wave in waves.iter().copied() {
-        displaced += wave_offset(wave, position, time);
-    }
-
-    displaced
+    rest_position
+        + waves
+            .iter()
+            .copied()
+            .map(|wave| wave_offset(wave, position, time))
+            .sum::<Vec3>()
 }
 
 pub fn surface_grid(columns: usize, rows: usize, size: Vec2) -> Vec<Vec3> {
