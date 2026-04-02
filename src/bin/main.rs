@@ -7,7 +7,7 @@ use std::{
 use glam::Mat4;
 use particles::{
     projection::project_cloud,
-    render::{render_cloud, Theme},
+    render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
@@ -49,7 +49,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     let timeline = Timeline::new();
     let colors = vec![theme.foreground; timeline.particle_count()];
     let projection = projection(&resolution);
-    let depth_field = timeline.depth_field();
+    let depth_field = DepthField {
+        focus_depth: 4.0,
+        blur: 8.0,
+    };
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();

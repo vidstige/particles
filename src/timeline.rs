@@ -3,7 +3,6 @@ use glam::{Mat4, Vec2, Vec3};
 use crate::{
     distribution::{collect, Uniform3},
     gerstner::{displaced_positions, surface_grid, GerstnerWave},
-    render::DepthField,
     rng::Rng,
     simplex::SimplexNoise,
 };
@@ -83,13 +82,6 @@ impl Timeline {
         let eye = Vec3::new(radius * angle.cos(), height, radius * angle.sin());
         Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
     }
-
-    pub fn depth_field(&self) -> DepthField {
-        DepthField {
-            focus_depth: 4.0,
-            blur: 8.0,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -133,14 +125,5 @@ mod tests {
         let eye = Vec3::new(4.0 * angle.cos(), 1.5, 4.0 * angle.sin());
 
         assert_eq!(timeline.view(1.0), Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y));
-    }
-
-    #[test]
-    fn timeline_depth_field_matches_camera_setup() {
-        let timeline = Timeline::new();
-        let depth_field = timeline.depth_field();
-
-        assert_eq!(depth_field.focus_depth, 4.0);
-        assert_eq!(depth_field.blur, 8.0);
     }
 }
