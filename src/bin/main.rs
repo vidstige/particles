@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         background: Color::from_rgba8(14, 14, 18, 255),
         foreground: Color::from_rgba8(214, 92, 255, 255),
     };
-    let seconds_per_frame = 1.0 / 60.0;
+    let fps = 30.0;
     let frame_count = 512;
     let timeline = Timeline::new();
     let colors = vec![theme.foreground; timeline.particle_count()];
@@ -55,9 +55,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
 
-    for frame in 0..frame_count {        
+    for frame in 0..frame_count {
         pixmap.fill(theme.background);
-        let time = frame as f32 * seconds_per_frame;
+        let time = frame as f32 / fps;
         let positions = timeline.particles(time);
         let view = timeline.view(time);
         let projected = project_cloud(&pixmap, &positions, projection, view);
