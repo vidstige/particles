@@ -1,8 +1,9 @@
-use glam::{Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 
 use crate::{
     distribution::{collect, Uniform3},
     gerstner::{displaced_positions, surface_grid, GerstnerWave},
+    render::DepthField,
     rng::Rng,
     simplex::SimplexNoise,
 };
@@ -73,12 +74,29 @@ impl Timeline {
             simplex_positions(&self.simplex_rest_positions, &self.simplex_field, t - 5.0)
         }
     }
+
+    pub fn view(&self, t: f32) -> Mat4 {
+        let angular_velocity = std::f32::consts::TAU * 60.0 / 2048.0;
+        let radius = 4.0;
+        let height = 1.5;
+        let angle = t * angular_velocity;
+        let eye = Vec3::new(radius * angle.cos(), height, radius * angle.sin());
+        Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
+    }
+
+    pub fn depth_field(&self) -> DepthField {
+        DepthField {
+            focus_depth: 4.0,
+            blur: 8.0,
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::{simplex_positions, Timeline};
     use crate::gerstner::displaced_positions;
+    use glam::{Mat4, Vec3};
 
     #[test]
     fn timeline_uses_gerstner_before_five_seconds() {
@@ -106,5 +124,23 @@ mod tests {
                 0.25,
             ),
         );
+    }
+
+    #[test]
+    fn timeline_view_uses_camera_motion_from_time() {
+        let timeline = Timeline::new();
+        let angle = std::f32::consts::TAU * 60.0 / 2048.0;
+        let eye = Vec3::new(4.0 * angle.cos(), 1.5, 4.0 * angle.sin());
+
+        assert_eq!(timeline.view(1.0), Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y));
+    }
+
+    #[test]
+    fn timeline_depth_field_matches_camera_setup() {
+        let timeline = Timeline::new();
+        let depth_field = timeline.depth_field();
+
+        assert_eq!(depth_field.focus_depth, 4.0);
+        assert_eq!(depth_field.blur, 8.0);
     }
 }

@@ -4,10 +4,10 @@ use std::{
     io::{self, Write},
 };
 
-use glam::{Mat4, Vec2, Vec3};
+use glam::Mat4;
 use particles::{
     projection::project_cloud,
-    render::{default_theme, render_cloud, DepthField, Theme},
+    render::{default_theme, render_cloud, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
@@ -39,11 +39,6 @@ fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
 }
 
-fn view(angle: f32, radius: f32, height: f32) -> Mat4 {
-    let eye = Vec3::new(radius * angle.cos(), height, radius * angle.sin());
-    Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
-}
-
 fn render(
     output: &mut impl Write,
     resolution: &Resolution,
@@ -51,25 +46,17 @@ fn render(
 ) -> Result<(), Box<dyn Error>> {
     let seconds_per_frame = 1.0 / 60.0;
     let frame_count = 512;
-    let theta = std::f32::consts::TAU / 2048.0;
     let timeline = Timeline::new();
     let colors = vec![theme.foreground; timeline.particle_count()];
-    let radius = 4.0;
-    let height = 1.5;
     let projection = projection(resolution);
-    let focus_depth = Vec2::new(radius, height).length();
-    let depth_field = DepthField {
-        focus_depth,
-        blur: 8.0,
-    };
+    let depth_field = timeline.depth_field();
 
     for frame in 0..frame_count {
         let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
         pixmap.fill(theme.background);
-        let angle = frame as f32 * theta;
         let time = frame as f32 * seconds_per_frame;
         let positions = timeline.particles(time);
-        let projected = project_cloud(&pixmap, &positions, projection, view(angle, radius, height));
+        let projected = project_cloud(&pixmap, &positions, projection, timeline.view(time));
         render_cloud(&mut pixmap, &projected, &colors, depth_field);
         output.write_all(pixmap.data())?;
         output.flush()?;
