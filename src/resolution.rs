@@ -18,7 +18,7 @@ impl fmt::Display for ParseResolutionError {
 impl std::error::Error for ParseResolutionError {}
 
 impl Resolution {
-    pub fn new(width: u32, height: u32) -> Resolution {
+    pub const fn new(width: u32, height: u32) -> Resolution {
         Resolution { width, height }
     }
 

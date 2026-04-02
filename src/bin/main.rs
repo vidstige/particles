@@ -7,20 +7,18 @@ use std::{
 use glam::Mat4;
 use particles::{
     projection::project_cloud,
-    render::{default_theme, render_cloud, Theme},
+    render::{render_cloud, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
-use tiny_skia::Pixmap;
+use tiny_skia::{Color, Pixmap};
 
-fn default_resolution() -> Resolution {
-    Resolution::new(512, 288)
-}
+const DEFAULT_RESOLUTION: Resolution = Resolution::new(512, 288);
 
 fn resolution() -> Result<Resolution, Box<dyn Error>> {
     let resolution = match env::var("RESOLUTION") {
         Ok(value) => value.parse::<Resolution>()?,
-        Err(env::VarError::NotPresent) => default_resolution(),
+        Err(env::VarError::NotPresent) => DEFAULT_RESOLUTION,
         Err(error) => return Err(error.into()),
     };
 
@@ -39,16 +37,18 @@ fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
 }
 
-fn render(
-    output: &mut impl Write,
-    resolution: &Resolution,
-    theme: &Theme,
-) -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<dyn Error>> {
+    let mut output = io::stdout().lock();
+    let resolution = resolution()?;
+    let theme = Theme {
+        background: Color::from_rgba8(14, 14, 18, 255),
+        foreground: Color::from_rgba8(214, 92, 255, 255),
+    };
     let seconds_per_frame = 1.0 / 60.0;
     let frame_count = 512;
     let timeline = Timeline::new();
     let colors = vec![theme.foreground; timeline.particle_count()];
-    let projection = projection(resolution);
+    let projection = projection(&resolution);
     let depth_field = timeline.depth_field();
 
     for frame in 0..frame_count {
@@ -63,11 +63,4 @@ fn render(
     }
 
     Ok(())
-}
-
-fn main() -> Result<(), Box<dyn Error>> {
-    let mut output = io::stdout().lock();
-    let resolution = resolution()?;
-    let theme = default_theme();
-    render(&mut output, &resolution, &theme)
 }

@@ -42,13 +42,6 @@ fn draw_disk(pixmap: &mut Pixmap, center: Vec2, radius: f32, color: TinyColor) {
     );
 }
 
-pub fn default_theme() -> Theme {
-    Theme {
-        background: TinyColor::from_rgba8(14, 14, 18, 255),
-        foreground: TinyColor::from_rgba8(214, 92, 255, 255),
-    }
-}
-
 pub fn render_cloud(
     pixmap: &mut Pixmap,
     positions: &[Option<Vec3>],
