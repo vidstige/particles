@@ -2,6 +2,7 @@
 name = "particles"
 version = "0.1.0"
 edition = "2021"
+default-run = "main"
 
 [dependencies]
 glam = "0.32.1"
