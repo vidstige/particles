@@ -22,8 +22,12 @@ impl Color {
         )
     }
 
+    pub fn overflow_scale(self) -> f32 {
+        self.red.max(self.green).max(self.blue).max(1.0)
+    }
+
     pub fn to_tiny_color(self) -> TinyColor {
-        let scale = self.red.max(self.green).max(self.blue).max(1.0);
+        let scale = self.overflow_scale();
         TinyColor::from_rgba(
             (self.red / scale).clamp(0.0, 1.0),
             (self.green / scale).clamp(0.0, 1.0),
@@ -56,5 +60,11 @@ mod tests {
         assert_eq!(color.green(), 0.5);
         assert_eq!(color.blue(), 0.25);
         assert_eq!(color.alpha(), 1.0);
+    }
+
+    #[test]
+    fn overflow_scale_matches_brightest_channel() {
+        assert_eq!(Color::new(2.0, 1.0, 0.5).overflow_scale(), 2.0);
+        assert_eq!(Color::new(0.5, 0.25, 0.125).overflow_scale(), 1.0);
     }
 }

@@ -8,6 +8,7 @@ pub mod glitter;
 pub mod point_cloud;
 pub mod projection;
 pub mod render;
+pub mod render2;
 pub mod resolution;
 pub mod rng;
 pub mod simplex;
