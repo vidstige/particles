@@ -1,5 +1,4 @@
 use std::{
-    env,
     error::Error,
     io::{self, Write},
 };
@@ -7,6 +6,7 @@ use std::{
 use glam::{Mat4, Vec3};
 use particles::{
     distribution::{collect, Uniform3},
+    env::resolution,
     projection::project_cloud,
     render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
@@ -14,8 +14,6 @@ use particles::{
     simplex::SimplexNoise,
 };
 use tiny_skia::{Color, Pixmap};
-
-const DEFAULT_RESOLUTION: Resolution = Resolution::new(512, 288);
 
 fn simplex_field() -> [SimplexNoise; 3] {
     [
@@ -37,24 +35,6 @@ fn simplex_view() -> Mat4 {
     let eye = Vec3::new(2.0, 2.0, 2.0);
     let center = Vec3::ZERO;
     Mat4::look_at_rh(eye, center, Vec3::Y)
-}
-
-fn resolution() -> Result<Resolution, Box<dyn Error>> {
-    let resolution = match env::var("RESOLUTION") {
-        Ok(value) => value.parse::<Resolution>()?,
-        Err(env::VarError::NotPresent) => DEFAULT_RESOLUTION,
-        Err(error) => return Err(error.into()),
-    };
-
-    if resolution.area() == 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "RESOLUTION must have non-zero area",
-        )
-        .into());
-    }
-
-    Ok(resolution)
 }
 
 fn projection(resolution: &Resolution) -> Mat4 {

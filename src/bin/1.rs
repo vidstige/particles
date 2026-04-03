@@ -1,37 +1,17 @@
 use std::{
-    env,
     error::Error,
     io::{self, Write},
 };
 
 use glam::Mat4;
 use particles::{
+    env::resolution,
     projection::project_cloud,
     render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
 use tiny_skia::{Color, Pixmap};
-
-const DEFAULT_RESOLUTION: Resolution = Resolution::new(512, 288);
-
-fn resolution() -> Result<Resolution, Box<dyn Error>> {
-    let resolution = match env::var("RESOLUTION") {
-        Ok(value) => value.parse::<Resolution>()?,
-        Err(env::VarError::NotPresent) => DEFAULT_RESOLUTION,
-        Err(error) => return Err(error.into()),
-    };
-
-    if resolution.area() == 0 {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "RESOLUTION must have non-zero area",
-        )
-        .into());
-    }
-
-    Ok(resolution)
-}
 
 fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)

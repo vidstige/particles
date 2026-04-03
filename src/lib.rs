@@ -1,6 +1,7 @@
 pub mod assignment;
 pub mod cubic_hermite3;
 pub mod distribution;
+pub mod env;
 pub mod gerstner;
 pub mod glitter;
 pub mod point_cloud;
