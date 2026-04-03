@@ -25,18 +25,18 @@ fn simplex_field() -> [SimplexNoise; 3] {
     ]
 }
 
-fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, time: f32) -> Vec3 {
+fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, w: f32) -> Vec3 {
     Vec3::new(
-        field[0].sample(point.extend(time)),
-        field[1].sample(point.extend(time + 7.0)),
-        field[2].sample(point.extend(time + 13.0)),
+        field[0].sample(point.extend(w)),
+        field[1].sample(point.extend(w)),
+        field[2].sample(point.extend(w)),
     )
 }
 
-fn simplex_positions(rest_positions: &[Vec3], field: &[SimplexNoise; 3], time: f32) -> Vec<Vec3> {
+fn simplex_positions(rest_positions: &[Vec3], field: &[SimplexNoise; 3], w: f32) -> Vec<Vec3> {
     rest_positions
         .iter()
-        .map(|rest_position| *rest_position + simplex_offset(field, *rest_position, time) * 0.45)
+        .map(|rest_position| *rest_position + simplex_offset(field, *rest_position, w) * 0.45)
         .collect()
 }
 
@@ -118,7 +118,10 @@ impl Timeline {
                 .map(|rest_position| displaced_position(*rest_position, &self.gerstner_waves, t))
                 .collect()
         } else {
-            simplex_positions(&self.simplex_rest_positions, &self.simplex_field, t - 36.0)
+            let simplex_speed = 1.0;
+            let time = t - 36.0;
+            let w = time * simplex_speed;
+            simplex_positions(&self.simplex_rest_positions, &self.simplex_field, w)
         }
     }
 

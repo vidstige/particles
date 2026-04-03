@@ -23,11 +23,11 @@ fn simplex_field() -> [SimplexNoise; 3] {
     ]
 }
 
-fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, time: f32) -> Vec3 {
+fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, w: f32) -> Vec3 {
     Vec3::new(
-        field[0].sample(point.extend(time)),
-        field[1].sample(point.extend(time + 7.0)),
-        field[2].sample(point.extend(time + 13.0)),
+        field[0].sample(point.extend(w)),
+        field[1].sample(point.extend(w)),
+        field[2].sample(point.extend(w)),
     )
 }
 
@@ -50,6 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let fps = 30.0;
     let duration = 12.0;
+    let simplex_speed = 0.125;
     let frame_count = (duration * fps) as usize;
     let mut rng = Rng::new(0x1234_5678);
     let n = 1024;
@@ -67,9 +68,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     for frame in 0..frame_count {
         pixmap.fill(theme.background);
         let time = frame as f32 / fps;
+        let w = time * simplex_speed;
         let positions = rest_positions
             .iter()
-            .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, time) * 0.45)
+            .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, w) * 0.45)
             .collect::<Vec<_>>();
         let projected = project_cloud(&pixmap, &positions, projection, view);
         render_cloud(&mut pixmap, &projected, &colors, depth_field);
