@@ -40,6 +40,51 @@ fn simplex_positions(rest_positions: &[Vec3], field: &[SimplexNoise; 3], time: f
         .collect()
 }
 
+fn sample_path(points: &[Vec3], t: f32) -> Vec3 {
+    let scaled = t * (points.len() - 1) as f32;
+    let index = scaled.floor() as usize;
+    let next = (index + 1).min(points.len() - 1);
+    points[index].lerp(points[next], scaled.fract())
+}
+
+fn orbit_view(t: f32) -> Mat4 {
+    let angular_velocity = std::f32::consts::TAU / 48.0;
+    let radius = 4.0;
+    let height = 1.5;
+    let angle = t * angular_velocity;
+    let eye = Vec3::new(radius * angle.cos(), height, radius * angle.sin());
+    Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
+}
+
+fn glide_view(t: f32) -> Mat4 {
+    let phase = (t / 4.0).fract();
+    let eye = sample_path(
+        &[
+            Vec3::new(-1.0, 1.15, -1.7),
+            Vec3::new(0.3, 1.05, -1.45),
+            Vec3::new(1.0, 1.1, -1.05),
+            Vec3::new(-0.6, 1.2, -0.9),
+        ],
+        phase,
+    );
+    let center = sample_path(
+        &[
+            Vec3::new(-0.2, 0.0, 0.2),
+            Vec3::new(0.2, 0.0, 0.35),
+            Vec3::new(0.55, 0.0, 0.15),
+            Vec3::new(0.0, 0.0, 0.05),
+        ],
+        phase,
+    );
+    Mat4::look_at_rh(eye, center, Vec3::Y)
+}
+
+fn simplex_view() -> Mat4 {
+    let eye = Vec3::new(0.35, 0.2, 0.9);
+    let center = Vec3::new(-0.15, 0.1, -0.1);
+    Mat4::look_at_rh(eye, center, Vec3::Y)
+}
+
 pub struct Timeline {
     gerstner_rest_positions: Vec<Vec3>,
     gerstner_waves: [GerstnerWave; 5],
@@ -67,22 +112,25 @@ impl Timeline {
     }
 
     pub fn particles(&self, t: f32) -> Vec<Vec3> {
-        if t < 5.0 {
+        if t < 36.0 {
             self.gerstner_rest_positions
                 .iter()
                 .map(|rest_position| displaced_position(*rest_position, &self.gerstner_waves, t))
                 .collect()
         } else {
-            simplex_positions(&self.simplex_rest_positions, &self.simplex_field, t - 5.0)
+            simplex_positions(&self.simplex_rest_positions, &self.simplex_field, t - 36.0)
         }
     }
 
     pub fn view(&self, t: f32) -> Mat4 {
-        let angular_velocity = std::f32::consts::TAU * 60.0 / 2048.0;
-        let radius = 4.0;
-        let height = 1.5;
-        let angle = t * angular_velocity;
-        let eye = Vec3::new(radius * angle.cos(), height, radius * angle.sin());
-        Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
+        if t >= 36.0 {
+            return simplex_view();
+        }
+
+        if (t / 4.0).floor() as i32 % 2 == 0 {
+            orbit_view(t)
+        } else {
+            glide_view(t)
+        }
     }
 }
