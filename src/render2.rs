@@ -9,6 +9,17 @@ fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
+fn to_tiny_color(color: Color) -> TinyColor {
+    let scale = color.overflow_scale();
+    TinyColor::from_rgba(
+        (color.red / scale).clamp(0.0, 1.0),
+        (color.green / scale).clamp(0.0, 1.0),
+        (color.blue / scale).clamp(0.0, 1.0),
+        1.0,
+    )
+    .unwrap()
+}
+
 fn with_alpha(color: TinyColor, alpha: f32) -> TinyColor {
     let mut tmp = color;
     tmp.set_alpha(alpha);
@@ -52,7 +63,7 @@ pub fn render_cloud(
             pixmap,
             particle.truncate(),
             radius,
-            with_alpha(color.to_tiny_color(), alpha),
+            with_alpha(to_tiny_color(color), alpha),
         );
     }
 }
