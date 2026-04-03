@@ -45,7 +45,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         foreground: Color::from_rgba8(214, 92, 255, 255),
     };
     let fps = 30.0;
-    let frame_count = 512;
+    let duration = 44.0;
+    let frame_count = (duration * fps) as usize;
     let timeline = Timeline::new();
     let colors = vec![theme.foreground; timeline.particle_count()];
     let projection = projection(&resolution);
