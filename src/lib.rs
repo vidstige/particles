@@ -12,4 +12,5 @@ pub mod render2;
 pub mod resolution;
 pub mod rng;
 pub mod simplex;
+pub mod tinycolor;
 pub mod timeline;

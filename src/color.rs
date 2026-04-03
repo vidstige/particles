@@ -19,8 +19,4 @@ impl Color {
             blue as f32 / 255.0,
         )
     }
-
-    pub fn overflow_scale(self) -> f32 {
-        self.red.max(self.green).max(self.blue).max(1.0)
-    }
 }

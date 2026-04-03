@@ -1,6 +1,6 @@
 use glam::{Vec2, Vec3};
 
-use crate::color::Color;
+use crate::{color::Color, tinycolor::{to_tiny_color, with_alpha}};
 use tiny_skia::{BlendMode, Color as TinyColor, FillRule, Paint, PathBuilder, Pixmap, Transform};
 
 const PARTICLE_RADIUS: f32 = 1.0;
@@ -19,23 +19,6 @@ pub struct DepthField {
 
 fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
-}
-
-fn to_tiny_color(color: Color) -> TinyColor {
-    let scale = color.overflow_scale();
-    TinyColor::from_rgba(
-        (color.red / scale).clamp(0.0, 1.0),
-        (color.green / scale).clamp(0.0, 1.0),
-        (color.blue / scale).clamp(0.0, 1.0),
-        1.0,
-    )
-    .unwrap()
-}
-
-fn with_alpha(color: TinyColor, alpha: f32) -> TinyColor {
-    let mut tmp = color.clone();
-    tmp.set_alpha(alpha);
-    tmp
 }
 
 fn draw_disk(pixmap: &mut Pixmap, center: Vec2, radius: f32, color: TinyColor) {

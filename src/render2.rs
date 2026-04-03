@@ -1,6 +1,10 @@
 use glam::{Vec2, Vec3};
 
-use crate::{color::Color, render::DepthField};
+use crate::{
+    color::Color,
+    render::DepthField,
+    tinycolor::{to_tiny_color, with_alpha},
+};
 use tiny_skia::{BlendMode, Color as TinyColor, FillRule, Paint, PathBuilder, Pixmap, Transform};
 
 const PARTICLE_RADIUS: f32 = 1.0;
@@ -9,21 +13,8 @@ fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
-fn to_tiny_color(color: Color) -> TinyColor {
-    let scale = color.overflow_scale();
-    TinyColor::from_rgba(
-        (color.red / scale).clamp(0.0, 1.0),
-        (color.green / scale).clamp(0.0, 1.0),
-        (color.blue / scale).clamp(0.0, 1.0),
-        1.0,
-    )
-    .unwrap()
-}
-
-fn with_alpha(color: TinyColor, alpha: f32) -> TinyColor {
-    let mut tmp = color;
-    tmp.set_alpha(alpha);
-    tmp
+fn overflow_scale(color: Color) -> f32 {
+    color.red.max(color.green).max(color.blue).max(1.0)
 }
 
 fn draw_disk(pixmap: &mut Pixmap, center: Vec2, radius: f32, color: TinyColor) {
@@ -58,7 +49,7 @@ pub fn render_cloud(
         };
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
         let radius = PARTICLE_RADIUS + blur * focal_distance;
-        let alpha = circle_area(PARTICLE_RADIUS) / circle_area(radius) * color.overflow_scale();
+        let alpha = circle_area(PARTICLE_RADIUS) / circle_area(radius) * overflow_scale(color);
         draw_disk(
             pixmap,
             particle.truncate(),
