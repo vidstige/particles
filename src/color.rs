@@ -1,3 +1,5 @@
+use tiny_skia::Color as TinyColor;
+
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Color {
     pub red: f32,
@@ -19,6 +21,17 @@ impl Color {
             blue as f32 / 255.0,
         )
     }
+
+    pub fn to_tiny_color(self) -> TinyColor {
+        let scale = self.red.max(self.green).max(self.blue).max(1.0);
+        TinyColor::from_rgba(
+            (self.red / scale).clamp(0.0, 1.0),
+            (self.green / scale).clamp(0.0, 1.0),
+            (self.blue / scale).clamp(0.0, 1.0),
+            1.0,
+        )
+        .unwrap()
+    }
 }
 
 #[cfg(test)]
@@ -33,5 +46,15 @@ mod tests {
     #[test]
     fn from_rgb8_scales_bytes_to_unit_range() {
         assert_eq!(Color::from_rgb8(255, 128, 0), Color::new(1.0, 128.0 / 255.0, 0.0));
+    }
+
+    #[test]
+    fn to_tiny_color_scales_overflow_channels() {
+        let color = Color::new(2.0, 1.0, 0.5).to_tiny_color();
+
+        assert_eq!(color.red(), 1.0);
+        assert_eq!(color.green(), 0.5);
+        assert_eq!(color.blue(), 0.25);
+        assert_eq!(color.alpha(), 1.0);
     }
 }

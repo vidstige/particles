@@ -5,6 +5,7 @@ use std::{
 
 use glam::{Mat4, Vec3};
 use particles::{
+    color::Color,
     distribution::{collect, Uniform3},
     env::resolution,
     projection::project_cloud,
@@ -13,7 +14,7 @@ use particles::{
     rng::Rng,
     simplex::SimplexNoise,
 };
-use tiny_skia::{Color, Pixmap};
+use tiny_skia::{Color as TinyColor, Pixmap};
 
 fn simplex_field() -> [SimplexNoise; 3] {
     [
@@ -45,8 +46,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = Theme {
-        background: Color::from_rgba8(14, 14, 18, 255),
-        foreground: Color::from_rgba8(214, 92, 255, 255),
+        background: TinyColor::from_rgba8(14, 14, 18, 255),
+        foreground: Color::from_rgb8(214, 92, 255),
     };
     let fps = 30.0;
     let duration = 12.0;

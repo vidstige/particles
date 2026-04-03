@@ -1,5 +1,6 @@
 use glam::{Vec2, Vec3};
 
+use crate::color::Color;
 use tiny_skia::{BlendMode, Color as TinyColor, FillRule, Paint, PathBuilder, Pixmap, Transform};
 
 const PARTICLE_RADIUS: f32 = 1.0;
@@ -7,7 +8,7 @@ const PARTICLE_RADIUS: f32 = 1.0;
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
     pub background: TinyColor,
-    pub foreground: TinyColor,
+    pub foreground: Color,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -45,7 +46,7 @@ fn draw_disk(pixmap: &mut Pixmap, center: Vec2, radius: f32, color: TinyColor) {
 pub fn render_cloud(
     pixmap: &mut Pixmap,
     positions: &[Option<Vec3>],
-    colors: &[TinyColor],
+    colors: &[Color],
     depth_field: DepthField,
 ) {
     assert_eq!(positions.len(), colors.len());
@@ -63,7 +64,7 @@ pub fn render_cloud(
             pixmap,
             particle.truncate(),
             radius,
-            with_alpha(color, alpha),
+            with_alpha(color.to_tiny_color(), alpha),
         );
     }
 }

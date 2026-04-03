@@ -5,13 +5,14 @@ use std::{
 
 use glam::Mat4;
 use particles::{
+    color::Color,
     env::resolution,
     projection::project_cloud,
     render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
-use tiny_skia::{Color, Pixmap};
+use tiny_skia::{Color as TinyColor, Pixmap};
 
 fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
@@ -21,8 +22,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = Theme {
-        background: Color::from_rgba8(14, 14, 18, 255),
-        foreground: Color::from_rgba8(214, 92, 255, 255),
+        background: TinyColor::from_rgba8(14, 14, 18, 255),
+        foreground: Color::from_rgb8(214, 92, 255),
     };
     let fps = 30.0;
     let duration = 44.0;
