@@ -24,7 +24,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolution = resolution()?;
     let theme = Theme {
         background: Rgba8::from_rgb(14, 14, 18),
-        foreground: Color::from_rgb8(214, 92, 255),
+        foreground: Color::from_rgb8(124, 53, 147),
     };
     let fps = 30.0;
     let duration = 44.0;

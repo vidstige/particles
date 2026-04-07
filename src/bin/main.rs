@@ -35,10 +35,10 @@ fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, w: f32) -> Vec3 {
     )
 }
 
-fn simplex_view() -> Mat4 {
-    let eye = Vec3::new(2.0, 2.0, 2.0);
-    let center = Vec3::ZERO;
-    Mat4::look_at_rh(eye, center, Vec3::Y)
+fn simplex_view(angle: f32) -> Mat4 {
+    let radius = 2.0_f32.sqrt() * 2.0;
+    let eye = Vec3::new(radius * angle.cos(), 2.0, radius * angle.sin());
+    Mat4::look_at_rh(eye, Vec3::ZERO, Vec3::Y)
 }
 
 fn projection(resolution: &Resolution) -> Mat4 {
@@ -50,31 +50,32 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolution = resolution()?;
     let theme = Theme {
         background: Rgba8::from_rgb(14, 14, 18),
-        foreground: Color::from_rgb8(214, 92, 255),
+        foreground: Color::from_rgb8(124, 53, 147),
     };
     let fps = 30.0;
     let duration = 12.0;
-    let simplex_speed = 0.125;
+    let simplex_speed = 0.02;
+    let camera_omega: f32 = 0.125;
     let frame_count = (duration * fps) as usize;
     let mut rng = Rng::new(0x1234_5678);
-    let n = 1024;
+    let n = 4*1024;
     let rest_positions = collect(&mut Uniform3::new(), n, &mut rng);
     let field = simplex_field();
     let base_colors = vec![theme.foreground; n];
     let glitter_params = glitter_particles(&mut rng, n);
     let glitter = Glitter { falloff_power: 8.0 };
     let projection = projection(&resolution);
-    let view = simplex_view();
-    let view_direction = view_direction(view);
     let depth_field = DepthField {
         focus_depth: 2.0,
-        blur: 2.0,
+        blur: 1.0,
     };
     let mut bitmap = Bitmap::new(resolution);
 
     for frame in 0..frame_count {
         bitmap.fill(theme.background);
         let time = frame as f32 / fps;
+        let view = simplex_view(time * camera_omega);
+        let view_direction = view_direction(view);
         let w = time * simplex_speed;
         let positions = rest_positions
             .iter()
