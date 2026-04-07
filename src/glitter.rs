@@ -1,9 +1,10 @@
 use crate::{color::Color, rng::Rng};
-use glam::{Mat4, Vec3};
+use glam::{Mat3, Mat4, Vec3};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Glitter {
     pub falloff_power: f32,
+    pub tumble_speed: f32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -20,9 +21,18 @@ fn random_normal(rng: &mut Rng) -> Vec3 {
     .normalize()
 }
 
-fn glitter_amount(particle: GlitterParams, view_direction: Vec3, glitter: Glitter) -> f32 {
-    particle
-        .normal
+fn tumble_rotation(time: f32, tumble_speed: f32) -> Mat3 {
+    Mat3::from_rotation_x(time * tumble_speed)
+}
+
+fn glitter_amount_at_time(
+    particle: GlitterParams,
+    view_direction: Vec3,
+    glitter: Glitter,
+    time: f32,
+) -> f32 {
+    let rotated_normal = tumble_rotation(time, glitter.tumble_speed) * particle.normal;
+    rotated_normal
         .dot(view_direction)
         .clamp(0.0, 1.0)
         .powf(glitter.falloff_power)
@@ -58,15 +68,16 @@ pub fn glitter_colors(
     particles: &[GlitterParams],
     view_direction: Vec3,
     glitter: Glitter,
+    time: f32,
 ) -> Vec<Color> {
     assert_eq!(base_colors.len(), particles.len());
 
-    let glitter_tint = Color::new(8.0, 8.0, 8.0);
+    let glitter_tint = Color::new(4.0, 4.0, 4.0);
     base_colors
         .iter()
         .zip(particles)
         .map(|(base_color, particle)| {
-            let amount = glitter_amount(*particle, view_direction, glitter);
+            let amount = glitter_amount_at_time(*particle, view_direction, glitter, time);
             lerp_color(*base_color, glitter_tint, amount)
         })
         .collect()
@@ -95,6 +106,7 @@ mod tests {
         let view_direction = Vec3::new(0.0, 0.0, -1.0);
         let glitter = Glitter {
             falloff_power: 16.0,
+            tumble_speed: 0.0,
         };
         let particles = [
             GlitterParams {
@@ -106,10 +118,36 @@ mod tests {
             },
         ];
 
-        let colors = glitter_colors(&[base_color; 3], &particles, view_direction, glitter);
+        let colors = glitter_colors(&[base_color; 3], &particles, view_direction, glitter, 0.0);
 
-        assert_eq!(colors[0], Color::new(1.0, 1.0, 1.0));
+        assert_eq!(colors[0], Color::new(8.0, 8.0, 8.0));
         assert_eq!(colors[1], base_color);
         assert_eq!(colors[2], base_color);
+    }
+
+    #[test]
+    fn glitter_colors_change_over_time_when_tumbling() {
+        let base_color = Color::new(0.25, 0.5, 0.75);
+        let view_direction = Vec3::new(0.0, 0.0, -1.0);
+        let glitter = Glitter {
+            falloff_power: 1.0,
+            tumble_speed: 1.0,
+        };
+        let particles = [GlitterParams {
+            normal: view_direction,
+        }];
+
+        let colors_at_start =
+            glitter_colors(&[base_color], &particles, view_direction, glitter, 0.0);
+        let colors_quarter_turn = glitter_colors(
+            &[base_color],
+            &particles,
+            view_direction,
+            glitter,
+            std::f32::consts::FRAC_PI_2,
+        );
+
+        assert_eq!(colors_at_start[0], Color::new(8.0, 8.0, 8.0));
+        assert_eq!(colors_quarter_turn[0], base_color);
     }
 }
