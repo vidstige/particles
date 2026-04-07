@@ -50,23 +50,23 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolution = resolution()?;
     let theme = Theme {
         background: Rgba8::from_rgb(14, 14, 18),
-        foreground: Color::from_rgb8(124, 53, 147),
+        foreground: Color::from_rgb8(112, 48, 132),
     };
     let fps = 30.0;
-    let duration = 12.0;
-    let simplex_speed = 0.02;
-    let camera_omega: f32 = 0.125;
+    let duration = 24.0;
+    let simplex_speed = 0.25;
+    let camera_omega: f32 = 0.5;
     let frame_count = (duration * fps) as usize;
     let mut rng = Rng::new(0x1234_5678);
-    let n = 4*1024;
+    let n = 1024;
     let rest_positions = collect(&mut Uniform3::new(), n, &mut rng);
     let field = simplex_field();
     let base_colors = vec![theme.foreground; n];
     let glitter_params = glitter_particles(&mut rng, n);
-    let glitter = Glitter { falloff_power: 8.0 };
+    let glitter = Glitter { falloff_power: 128.0 };
     let projection = projection(&resolution);
     let depth_field = DepthField {
-        focus_depth: 2.0,
+        focus_depth: 3.0,
         blur: 1.0,
     };
     let mut bitmap = Bitmap::new(resolution);

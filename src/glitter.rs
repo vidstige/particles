@@ -61,7 +61,7 @@ pub fn glitter_colors(
 ) -> Vec<Color> {
     assert_eq!(base_colors.len(), particles.len());
 
-    let glitter_tint = Color::new(1.0, 1.0, 1.0);
+    let glitter_tint = Color::new(8.0, 8.0, 8.0);
     base_colors
         .iter()
         .zip(particles)
