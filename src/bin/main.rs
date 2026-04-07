@@ -8,6 +8,7 @@ use particles::{
     color::Color,
     distribution::{collect, Uniform3},
     env::resolution,
+    glitter::{glitter_colors, glitter_particles, view_direction, Glitter},
     projection::project_cloud,
     render::{DepthField, Theme},
     render2::render_cloud,
@@ -58,12 +59,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     let n = 1024;
     let rest_positions = collect(&mut Uniform3::new(), n, &mut rng);
     let field = simplex_field();
-    let colors = vec![theme.foreground; n];
+    let base_colors = vec![theme.foreground; n];
+    let glitter_params = glitter_particles(&mut rng, n);
+    let glitter = Glitter { falloff_power: 8.0 };
     let projection = projection(&resolution);
     let view = simplex_view();
+    let view_direction = view_direction(view);
     let depth_field = DepthField {
         focus_depth: 2.0,
-        blur: 1.0,
+        blur: 2.0,
     };
     let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
 
@@ -76,6 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, w) * 0.45)
             .collect::<Vec<_>>();
         let projected = project_cloud(&pixmap, &positions, projection, view);
+        let colors = glitter_colors(&base_colors, &glitter_params, view_direction, glitter);
         render_cloud(&mut pixmap, &projected, &colors, depth_field);
         output.write_all(pixmap.data())?;
         output.flush()?;
