@@ -5,7 +5,9 @@ use std::{
 
 use glam::{Mat4, Vec3};
 use particles::{
+    bitmap::Bitmap,
     color::Color,
+    color::Rgba8,
     distribution::{collect, Uniform3},
     env::resolution,
     glitter::{glitter_colors, glitter_particles, view_direction, Glitter},
@@ -16,7 +18,6 @@ use particles::{
     rng::Rng,
     simplex::SimplexNoise,
 };
-use tiny_skia::{Color as TinyColor, Pixmap};
 
 fn simplex_field() -> [SimplexNoise; 3] {
     [
@@ -48,7 +49,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = Theme {
-        background: TinyColor::from_rgba8(14, 14, 18, 255),
+        background: Rgba8::from_rgb(14, 14, 18),
         foreground: Color::from_rgb8(214, 92, 255),
     };
     let fps = 30.0;
@@ -69,20 +70,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         focus_depth: 2.0,
         blur: 2.0,
     };
-    let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+    let mut bitmap = Bitmap::new(resolution.width, resolution.height);
 
     for frame in 0..frame_count {
-        pixmap.fill(theme.background);
+        bitmap.fill(theme.background);
         let time = frame as f32 / fps;
         let w = time * simplex_speed;
         let positions = rest_positions
             .iter()
             .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, w) * 0.45)
             .collect::<Vec<_>>();
-        let projected = project_cloud(&pixmap, &positions, projection, view);
+        let projected = project_cloud(&resolution, &positions, projection, view);
         let colors = glitter_colors(&base_colors, &glitter_params, view_direction, glitter);
-        render_cloud(&mut pixmap, &projected, &colors, depth_field);
-        output.write_all(pixmap.data())?;
+        render_cloud(&mut bitmap, &projected, &colors, depth_field);
+        output.write_all(bitmap.data())?;
         output.flush()?;
     }
 

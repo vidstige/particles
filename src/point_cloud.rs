@@ -1,10 +1,10 @@
 use std::{error::Error, io::Write};
 
 use glam::{Mat4, Vec3};
-use tiny_skia::Pixmap;
 
 use crate::{
     assignment::auction_assignment,
+    bitmap::Bitmap,
     cubic_hermite3::CubicHermite3,
     distribution::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
@@ -185,11 +185,11 @@ pub fn render(
             let phase = frame as f32 / segment_frames as f32;
             let t = linger(phase, linger_power);
             let cloud = interpolate_cloud(&segment, t);
-            let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
-            pixmap.fill(theme.background);
-            let positions = project_cloud(&pixmap, &cloud, projection, view);
-            render_cloud(&mut pixmap, &positions, &colors, depth_field);
-            output.write_all(pixmap.data())?;
+            let mut bitmap = Bitmap::new(resolution.width, resolution.height);
+            bitmap.fill(theme.background);
+            let positions = project_cloud(resolution, &cloud, projection, view);
+            render_cloud(&mut bitmap, &positions, &colors, depth_field);
+            output.write_all(bitmap.data())?;
             output.flush()?;
         }
     }

@@ -1,11 +1,6 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
-use tiny_skia::Pixmap;
 
 use crate::resolution::Resolution;
-
-fn from_pixmap(pixmap: &Pixmap) -> Resolution {
-    Resolution::new(pixmap.width(), pixmap.height())
-}
 
 fn project_clip(clip: Vec4, resolution: &Resolution) -> Option<Vec2> {
     if clip.w <= 0.0 {
@@ -39,16 +34,15 @@ fn project_particle(
 }
 
 pub fn project_cloud(
-    pixmap: &Pixmap,
+    resolution: &Resolution,
     positions: &[Vec3],
     projection: Mat4,
     view: Mat4,
 ) -> Vec<Option<Vec3>> {
-    let resolution = from_pixmap(pixmap);
     let view_projection = projection * view;
     positions
         .iter()
         .copied()
-        .map(|point| project_particle(point, &resolution, view_projection, view))
+        .map(|point| project_particle(point, resolution, view_projection, view))
         .collect()
 }

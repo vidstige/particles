@@ -5,14 +5,15 @@ use std::{
 
 use glam::Mat4;
 use particles::{
+    bitmap::Bitmap,
     color::Color,
+    color::Rgba8,
     env::resolution,
     projection::project_cloud,
     render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
-use tiny_skia::{Color as TinyColor, Pixmap};
 
 fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
@@ -22,7 +23,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
     let resolution = resolution()?;
     let theme = Theme {
-        background: TinyColor::from_rgba8(14, 14, 18, 255),
+        background: Rgba8::from_rgb(14, 14, 18),
         foreground: Color::from_rgb8(214, 92, 255),
     };
     let fps = 30.0;
@@ -35,16 +36,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         focus_depth: 4.0,
         blur: 8.0,
     };
-    let mut pixmap = Pixmap::new(resolution.width, resolution.height).unwrap();
+    let mut bitmap = Bitmap::new(resolution.width, resolution.height);
 
     for frame in 0..frame_count {
-        pixmap.fill(theme.background);
+        bitmap.fill(theme.background);
         let time = frame as f32 / fps;
         let positions = timeline.particles(time);
         let view = timeline.view(time);
-        let projected = project_cloud(&pixmap, &positions, projection, view);
-        render_cloud(&mut pixmap, &projected, &colors, depth_field);
-        output.write_all(pixmap.data())?;
+        let projected = project_cloud(&resolution, &positions, projection, view);
+        render_cloud(&mut bitmap, &projected, &colors, depth_field);
+        output.write_all(bitmap.data())?;
         output.flush()?;
     }
 

@@ -6,4 +6,3 @@ default-run = "main"
 
 [dependencies]
 glam = "0.32.1"
-tiny-skia = "0.12.0"

@@ -1,4 +1,6 @@
 pub mod assignment;
+pub mod bitmap;
+pub mod circle_rasterizer;
 pub mod color;
 pub mod cubic_hermite3;
 pub mod distribution;
@@ -13,4 +15,3 @@ pub mod resolution;
 pub mod rng;
 pub mod simplex;
 pub mod timeline;
-pub mod tinycolor;
