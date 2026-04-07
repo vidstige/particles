@@ -1,8 +1,4 @@
-use std::{
-    env,
-    error::Error,
-    io,
-};
+use std::{env, error::Error, io};
 
 use crate::resolution::Resolution;
 

@@ -96,8 +96,11 @@ impl Timeline {
     pub fn new() -> Self {
         let gerstner_rest_positions = surface_grid(64, 64, Vec2::new(8.0, 8.0));
         let mut rng = Rng::new(0x1234_5678);
-        let simplex_rest_positions =
-            collect(&mut Uniform3::new(), gerstner_rest_positions.len(), &mut rng);
+        let simplex_rest_positions = collect(
+            &mut Uniform3::new(),
+            gerstner_rest_positions.len(),
+            &mut rng,
+        );
 
         Self {
             gerstner_rest_positions,

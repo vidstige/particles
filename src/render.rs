@@ -1,6 +1,9 @@
 use glam::{Vec2, Vec3};
 
-use crate::{color::Color, tinycolor::{to_tiny_color, with_alpha}};
+use crate::{
+    color::Color,
+    tinycolor::{to_tiny_color, with_alpha},
+};
 use tiny_skia::{BlendMode, Color as TinyColor, FillRule, Paint, PathBuilder, Pixmap, Transform};
 
 const PARTICLE_RADIUS: f32 = 1.0;

@@ -7,8 +7,8 @@ use crate::{
     assignment::auction_assignment,
     cubic_hermite3::CubicHermite3,
     distribution::{
-        collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron,
-        Lissajous, Sphere, Tetrahedron, TorusSurface, Uniform3,
+        collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
+        Tetrahedron, TorusSurface, Uniform3,
     },
     projection::project_cloud,
     render::{render_cloud, DepthField, Theme},
@@ -98,11 +98,7 @@ fn noisy<D: Distribution3>(distribution: D, scale: f32) -> Add<D, Gaussian> {
 
 fn clouds(rng: &mut Rng, point_count: usize, noise_scale: f32) -> Vec<Vec<Vec3>> {
     vec![
-        collect(
-            &mut noisy(Uniform3::new(), noise_scale),
-            point_count,
-            rng,
-        ),
+        collect(&mut noisy(Uniform3::new(), noise_scale), point_count, rng),
         collect(&mut noisy(Cube::new(0.9), noise_scale), point_count, rng),
         collect(&mut noisy(Sphere::new(0.95), noise_scale), point_count, rng),
         collect(

@@ -136,24 +136,23 @@ fn simplex4(seed: u32, point: Vec4) -> f32 {
         + Vec4::splat(3.0 * G4);
     let local4 = local0 - Vec4::ONE + Vec4::splat(4.0 * G4);
 
-    27.0
-        * (contribution(seed, [i, j, k, l], local0)
-            + contribution(
-                seed,
-                [i + step1[0], j + step1[1], k + step1[2], l + step1[3]],
-                local1,
-            )
-            + contribution(
-                seed,
-                [i + step2[0], j + step2[1], k + step2[2], l + step2[3]],
-                local2,
-            )
-            + contribution(
-                seed,
-                [i + step3[0], j + step3[1], k + step3[2], l + step3[3]],
-                local3,
-            )
-            + contribution(seed, [i + 1, j + 1, k + 1, l + 1], local4))
+    27.0 * (contribution(seed, [i, j, k, l], local0)
+        + contribution(
+            seed,
+            [i + step1[0], j + step1[1], k + step1[2], l + step1[3]],
+            local1,
+        )
+        + contribution(
+            seed,
+            [i + step2[0], j + step2[1], k + step2[2], l + step2[3]],
+            local2,
+        )
+        + contribution(
+            seed,
+            [i + step3[0], j + step3[1], k + step3[2], l + step3[3]],
+            local3,
+        )
+        + contribution(seed, [i + 1, j + 1, k + 1, l + 1], local4))
 }
 
 fn scaled_value(value: f32, strength: f32) -> f32 {
