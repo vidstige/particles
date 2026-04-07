@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         focus_depth: 2.0,
         blur: 2.0,
     };
-    let mut bitmap = Bitmap::new(resolution.width, resolution.height);
+    let mut bitmap = Bitmap::new(resolution);
 
     for frame in 0..frame_count {
         bitmap.fill(theme.background);
@@ -80,7 +80,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .iter()
             .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, w) * 0.45)
             .collect::<Vec<_>>();
-        let projected = project_cloud(&resolution, &positions, projection, view);
+        let projected = project_cloud(&bitmap, &positions, projection, view);
         let colors = glitter_colors(&base_colors, &glitter_params, view_direction, glitter);
         render_cloud(&mut bitmap, &projected, &colors, depth_field);
         output.write_all(bitmap.data())?;

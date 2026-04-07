@@ -37,12 +37,12 @@ pub fn draw_disk(bitmap: &mut Bitmap, center: Vec2, radius: f32, color: Rgba8) {
 #[cfg(test)]
 mod tests {
     use super::draw_disk;
-    use crate::{bitmap::Bitmap, color::Rgba8};
+    use crate::{bitmap::Bitmap, color::Rgba8, resolution::Resolution};
     use glam::Vec2;
 
     #[test]
     fn draw_disk_antialiases_edges() {
-        let mut bitmap = Bitmap::new(5, 5);
+        let mut bitmap = Bitmap::new(Resolution::new(5, 5));
         draw_disk(
             &mut bitmap,
             Vec2::new(2.5, 2.5),
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn draw_disk_adds_colors_with_saturation() {
-        let mut bitmap = Bitmap::new(3, 3);
+        let mut bitmap = Bitmap::new(Resolution::new(3, 3));
         let color = Rgba8::new(191, 191, 191, 191);
 
         draw_disk(&mut bitmap, Vec2::new(1.5, 1.5), 0.5, color);

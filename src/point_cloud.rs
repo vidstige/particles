@@ -185,9 +185,9 @@ pub fn render(
             let phase = frame as f32 / segment_frames as f32;
             let t = linger(phase, linger_power);
             let cloud = interpolate_cloud(&segment, t);
-            let mut bitmap = Bitmap::new(resolution.width, resolution.height);
+            let mut bitmap = Bitmap::new(resolution.clone());
             bitmap.fill(theme.background);
-            let positions = project_cloud(resolution, &cloud, projection, view);
+            let positions = project_cloud(&bitmap, &cloud, projection, view);
             render_cloud(&mut bitmap, &positions, &colors, depth_field);
             output.write_all(bitmap.data())?;
             output.flush()?;

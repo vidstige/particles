@@ -36,14 +36,14 @@ fn main() -> Result<(), Box<dyn Error>> {
         focus_depth: 4.0,
         blur: 8.0,
     };
-    let mut bitmap = Bitmap::new(resolution.width, resolution.height);
+    let mut bitmap = Bitmap::new(resolution);
 
     for frame in 0..frame_count {
         bitmap.fill(theme.background);
         let time = frame as f32 / fps;
         let positions = timeline.particles(time);
         let view = timeline.view(time);
-        let projected = project_cloud(&resolution, &positions, projection, view);
+        let projected = project_cloud(&bitmap, &positions, projection, view);
         render_cloud(&mut bitmap, &projected, &colors, depth_field);
         output.write_all(bitmap.data())?;
         output.flush()?;

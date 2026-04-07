@@ -1,6 +1,6 @@
 use glam::{Mat4, Vec2, Vec3, Vec4};
 
-use crate::resolution::Resolution;
+use crate::{bitmap::Bitmap, resolution::Resolution};
 
 fn project_clip(clip: Vec4, resolution: &Resolution) -> Option<Vec2> {
     if clip.w <= 0.0 {
@@ -34,11 +34,12 @@ fn project_particle(
 }
 
 pub fn project_cloud(
-    resolution: &Resolution,
+    bitmap: &Bitmap,
     positions: &[Vec3],
     projection: Mat4,
     view: Mat4,
 ) -> Vec<Option<Vec3>> {
+    let resolution = bitmap.resolution();
     let view_projection = projection * view;
     positions
         .iter()

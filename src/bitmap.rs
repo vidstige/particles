@@ -1,28 +1,30 @@
-use crate::color::Rgba8;
+use crate::{color::Rgba8, resolution::Resolution};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Bitmap {
-    width: u32,
-    height: u32,
+    resolution: Resolution,
     data: Vec<u8>,
 }
 
 impl Bitmap {
-    pub fn new(width: u32, height: u32) -> Self {
-        let len = width as usize * height as usize * 4;
+    pub fn new(resolution: Resolution) -> Self {
+        let len = resolution.area() * 4;
         Self {
-            width,
-            height,
+            resolution,
             data: vec![0; len],
         }
     }
 
     pub fn width(&self) -> u32 {
-        self.width
+        self.resolution.width
     }
 
     pub fn height(&self) -> u32 {
-        self.height
+        self.resolution.height
+    }
+
+    pub fn resolution(&self) -> &Resolution {
+        &self.resolution
     }
 
     pub fn data(&self) -> &[u8] {
@@ -46,10 +48,10 @@ impl Bitmap {
     }
 
     pub(crate) fn pixel_index(&self, x: u32, y: u32) -> Option<usize> {
-        if x >= self.width || y >= self.height {
+        if x >= self.width() || y >= self.height() {
             return None;
         }
-        Some((y as usize * self.width as usize + x as usize) * 4)
+        Some((y as usize * self.width() as usize + x as usize) * 4)
     }
 
     pub(crate) fn data_mut(&mut self) -> &mut [u8] {
@@ -60,11 +62,11 @@ impl Bitmap {
 #[cfg(test)]
 mod tests {
     use super::Bitmap;
-    use crate::color::Rgba8;
+    use crate::{color::Rgba8, resolution::Resolution};
 
     #[test]
     fn fill_sets_every_pixel() {
-        let mut bitmap = Bitmap::new(2, 2);
+        let mut bitmap = Bitmap::new(Resolution::new(2, 2));
         let color = Rgba8::new(1, 2, 3, 4);
 
         bitmap.fill(color);
@@ -77,9 +79,10 @@ mod tests {
 
     #[test]
     fn pixel_rejects_out_of_bounds_positions() {
-        let bitmap = Bitmap::new(2, 2);
+        let bitmap = Bitmap::new(Resolution::new(2, 2));
 
         assert_eq!(bitmap.pixel(2, 0), None);
         assert_eq!(bitmap.pixel(0, 2), None);
     }
+
 }
