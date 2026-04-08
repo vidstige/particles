@@ -72,6 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let depth_field = DepthField {
         focus_depth: 2.0,
         blur: 2.0,
+        particle_radius: 1.0,
     };
     let mut bitmap = Bitmap::new(resolution);
 

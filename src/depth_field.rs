@@ -2,8 +2,6 @@ use glam::Vec3;
 
 use crate::{bitmap::Bitmap, circle_rasterizer::draw_disk, color::Color, color::Rgba8};
 
-const PARTICLE_RADIUS: f32 = 1.0;
-
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
     pub background: Rgba8,
@@ -14,6 +12,7 @@ pub struct Theme {
 pub struct DepthField {
     pub focus_depth: f32,
     pub blur: f32,
+    pub particle_radius: f32,
 }
 
 pub trait Render {
@@ -41,8 +40,9 @@ fn render_cloud(
             continue;
         };
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
-        let radius = PARTICLE_RADIUS + depth_field.blur * focal_distance;
-        let alpha = circle_area(PARTICLE_RADIUS) / circle_area(radius) * overflow_scale(color);
+        let radius = depth_field.particle_radius + depth_field.blur * focal_distance;
+        let alpha =
+            circle_area(depth_field.particle_radius) / circle_area(radius) * overflow_scale(color);
         draw_disk(target, particle.truncate(), radius, color.to_rgba8(alpha));
     }
 }
