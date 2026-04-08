@@ -2,15 +2,30 @@ use glam::Vec2;
 
 use crate::{bitmap::Bitmap, color::Rgba8};
 
-fn coverage(center: Vec2, radius: f32, x: i32, y: i32) -> f32 {
-    let sample_x = x as f32 + 0.5 - center.x;
-    let sample_y = y as f32 + 0.5 - center.y;
-    (radius + 0.5 - sample_x.hypot(sample_y)).clamp(0.0, 1.0)
+fn coverage(
+    distance_squared: f32,
+    radius: f32,
+    has_inner_radius: bool,
+    inner_radius_squared: f32,
+    outer_radius_squared: f32,
+) -> f32 {
+    if has_inner_radius && distance_squared <= inner_radius_squared {
+        return 1.0;
+    }
+    if distance_squared >= outer_radius_squared {
+        return 0.0;
+    }
+    (radius + 0.5 - distance_squared.sqrt()).clamp(0.0, 1.0)
 }
 
 pub fn draw_disk(bitmap: &mut Bitmap, center: Vec2, radius: f32, color: Rgba8) {
     let width = bitmap.width() as i32;
     let height = bitmap.height() as i32;
+    let radius_plus_half = radius + 0.5;
+    let has_inner_radius = radius >= 0.5;
+    let inner_radius = (radius - 0.5).max(0.0);
+    let inner_radius_squared = inner_radius * inner_radius;
+    let outer_radius_squared = radius_plus_half * radius_plus_half;
     let min_x = (center.x - radius - 0.5).floor().max(0.0) as i32;
     let max_x = (center.x + radius + 0.5).ceil().min((width - 1) as f32) as i32;
     let min_y = (center.y - radius - 0.5).floor().max(0.0) as i32;
@@ -18,8 +33,18 @@ pub fn draw_disk(bitmap: &mut Bitmap, center: Vec2, radius: f32, color: Rgba8) {
     let data = bitmap.data_mut();
 
     for y in min_y..=max_y {
+        let sample_y = y as f32 + 0.5 - center.y;
+        let sample_y_squared = sample_y * sample_y;
         for x in min_x..=max_x {
-            let alpha = coverage(center, radius, x, y);
+            let sample_x = x as f32 + 0.5 - center.x;
+            let distance_squared = sample_x * sample_x + sample_y_squared;
+            let alpha = coverage(
+                distance_squared,
+                radius,
+                has_inner_radius,
+                inner_radius_squared,
+                outer_radius_squared,
+            );
             if alpha == 0.0 {
                 continue;
             }
@@ -73,5 +98,20 @@ mod tests {
         assert_eq!(pixel.green, 255);
         assert_eq!(pixel.blue, 255);
         assert_eq!(pixel.alpha, 255);
+    }
+
+    #[test]
+    fn draw_disk_keeps_small_disks_partially_transparent() {
+        let mut bitmap = Bitmap::new(Resolution::new(3, 3));
+
+        draw_disk(
+            &mut bitmap,
+            Vec2::new(1.5, 1.5),
+            0.25,
+            Rgba8::from_rgb(255, 255, 255),
+        );
+
+        let pixel = bitmap.pixel(1, 1).unwrap();
+        assert_eq!(pixel.alpha, 191);
     }
 }
