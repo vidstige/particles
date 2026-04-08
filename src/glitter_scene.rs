@@ -84,6 +84,16 @@ impl GlitterSceneSettings {
             simplex_speed: DEFAULT_SIMPLEX_SPEED,
         }
     }
+
+    pub fn glitter_speed(&self) -> f32 {
+        self.glitter.tumble_speed
+    }
+
+    pub fn set_glitter_speed(&mut self, speed: f32) {
+        self.glitter.tumble_speed = speed;
+        self.glitter.precession_speed =
+            speed * DEFAULT_GLITTER_PRECESSION_SPEED / DEFAULT_GLITTER_TUMBLE_SPEED;
+    }
 }
 
 pub struct GlitterScene {
