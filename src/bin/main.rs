@@ -22,6 +22,7 @@ use particles::{
 
 const CAMERA_ANGULAR_VELOCITY: f32 = 0.125;
 const GLITTER_TUMBLE_SPEED: f32 = 8.0;
+const GLITTER_PRECESSION_SPEED: f32 = 1.5;
 
 fn simplex_field() -> [SimplexNoise; 3] {
     [
@@ -70,6 +71,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         falloff_power: 16.0,
         tumble_speed: GLITTER_TUMBLE_SPEED,
         tumble_axis: Vec3::new(0.4, 0.8, 0.2).normalize(),
+        precession_axis: Vec3::new(-0.3, 0.1, 0.9).normalize(),
+        precession_speed: GLITTER_PRECESSION_SPEED,
     };
     let projection = projection(&resolution);
     let depth_field = DepthField {

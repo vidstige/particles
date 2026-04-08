@@ -6,6 +6,8 @@ pub struct Glitter {
     pub falloff_power: f32,
     pub tumble_speed: f32,
     pub tumble_axis: Vec3,
+    pub precession_axis: Vec3,
+    pub precession_speed: f32,
 }
 
 fn random_normal(rng: &mut Rng) -> Vec3 {
@@ -46,8 +48,11 @@ pub fn rotate_normals(normals: &[Vec3], rotation: Mat3) -> Vec<Vec3> {
 }
 
 pub fn tumble_rotation(time: f32, glitter: Glitter) -> Mat3 {
-    let axis = glitter.tumble_axis.normalize_or(Vec3::X);
-    Mat3::from_axis_angle(axis, time * glitter.tumble_speed)
+    let tumble_axis = glitter.tumble_axis.normalize_or(Vec3::X);
+    let precession_axis = glitter.precession_axis.normalize_or(Vec3::Y);
+    let precession = Mat3::from_axis_angle(precession_axis, time * glitter.precession_speed);
+    let current_tumble_axis = precession * tumble_axis;
+    Mat3::from_axis_angle(current_tumble_axis, time * glitter.tumble_speed)
 }
 
 pub fn glitter_normals(rng: &mut Rng, count: usize) -> Vec<Vec3> {
@@ -101,6 +106,8 @@ mod tests {
             falloff_power: 16.0,
             tumble_speed: 0.0,
             tumble_axis: Vec3::X,
+            precession_axis: Vec3::Y,
+            precession_speed: 0.0,
         };
         let normals = [view_direction, Vec3::X, -view_direction];
 
@@ -127,6 +134,8 @@ mod tests {
             falloff_power: 1.0,
             tumble_speed: 1.0,
             tumble_axis: Vec3::Z,
+            precession_axis: Vec3::Y,
+            precession_speed: 0.0,
         };
         let normals = [Vec3::X];
         let rotated = rotate_normals(
@@ -138,6 +147,42 @@ mod tests {
     }
 
     #[test]
+    fn tumble_rotation_adds_slow_precession() {
+        let glitter = Glitter {
+            falloff_power: 1.0,
+            tumble_speed: 0.0,
+            tumble_axis: Vec3::Z,
+            precession_axis: Vec3::X,
+            precession_speed: 1.0,
+        };
+        let normals = [Vec3::Z];
+        let rotated = rotate_normals(
+            &normals,
+            tumble_rotation(std::f32::consts::FRAC_PI_2, glitter),
+        );
+
+        assert!(rotated[0].abs_diff_eq(Vec3::Z, 1e-6));
+    }
+
+    #[test]
+    fn tumble_rotation_uses_precessed_axis_for_spin() {
+        let glitter = Glitter {
+            falloff_power: 1.0,
+            tumble_speed: 1.0,
+            tumble_axis: Vec3::Z,
+            precession_axis: Vec3::X,
+            precession_speed: 1.0,
+        };
+        let normals = [Vec3::X];
+        let rotated = rotate_normals(
+            &normals,
+            tumble_rotation(std::f32::consts::FRAC_PI_2, glitter),
+        );
+
+        assert!(rotated[0].abs_diff_eq(Vec3::Z, 1e-6));
+    }
+
+    #[test]
     fn glitter_colors_use_rotated_normals() {
         let base_color = Color::new(0.25, 0.5, 0.75);
         let view_direction = Vec3::new(0.0, 0.0, -1.0);
@@ -145,6 +190,8 @@ mod tests {
             falloff_power: 1.0,
             tumble_speed: 1.0,
             tumble_axis: Vec3::X,
+            precession_axis: Vec3::Y,
+            precession_speed: 0.0,
         };
         let normals = [view_direction];
         let colors_at_start = glitter_colors(&[base_color], &normals, view_direction, glitter);
