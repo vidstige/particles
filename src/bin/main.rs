@@ -69,6 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let glitter = Glitter {
         falloff_power: 16.0,
         tumble_speed: GLITTER_TUMBLE_SPEED,
+        tumble_axis: Vec3::new(0.4, 0.8, 0.2).normalize(),
     };
     let projection = projection(&resolution);
     let depth_field = DepthField {
@@ -89,7 +90,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, w) * 0.45)
             .collect::<Vec<_>>();
         let projected = project_cloud(&bitmap, &positions, projection, view);
-        let rotated_normals = rotate_normals(&normals, tumble_rotation(time, glitter.tumble_speed));
+        let rotated_normals = rotate_normals(&normals, tumble_rotation(time, glitter));
         let colors = glitter_colors(&base_colors, &rotated_normals, view_direction, glitter);
         depth_field.render(&mut bitmap, &projected, &colors);
         output.write_all(bitmap.data())?;

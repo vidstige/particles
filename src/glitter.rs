@@ -5,6 +5,7 @@ use glam::{Mat3, Mat4, Vec3};
 pub struct Glitter {
     pub falloff_power: f32,
     pub tumble_speed: f32,
+    pub tumble_axis: Vec3,
 }
 
 fn random_normal(rng: &mut Rng) -> Vec3 {
@@ -44,8 +45,9 @@ pub fn rotate_normals(normals: &[Vec3], rotation: Mat3) -> Vec<Vec3> {
     normals.iter().map(|normal| rotation * *normal).collect()
 }
 
-pub fn tumble_rotation(time: f32, tumble_speed: f32) -> Mat3 {
-    Mat3::from_rotation_x(time * tumble_speed)
+pub fn tumble_rotation(time: f32, glitter: Glitter) -> Mat3 {
+    let axis = glitter.tumble_axis.normalize_or(Vec3::X);
+    Mat3::from_axis_angle(axis, time * glitter.tumble_speed)
 }
 
 pub fn glitter_normals(rng: &mut Rng, count: usize) -> Vec<Vec3> {
@@ -98,6 +100,7 @@ mod tests {
         let glitter = Glitter {
             falloff_power: 16.0,
             tumble_speed: 0.0,
+            tumble_axis: Vec3::X,
         };
         let normals = [view_direction, Vec3::X, -view_direction];
 
@@ -123,14 +126,15 @@ mod tests {
         let glitter = Glitter {
             falloff_power: 1.0,
             tumble_speed: 1.0,
+            tumble_axis: Vec3::Z,
         };
-        let normals = [Vec3::Y];
+        let normals = [Vec3::X];
         let rotated = rotate_normals(
             &normals,
-            tumble_rotation(std::f32::consts::FRAC_PI_2, glitter.tumble_speed),
+            tumble_rotation(std::f32::consts::FRAC_PI_2, glitter),
         );
 
-        assert!(rotated[0].abs_diff_eq(Vec3::Z, 1e-6));
+        assert!(rotated[0].abs_diff_eq(Vec3::Y, 1e-6));
     }
 
     #[test]
@@ -140,6 +144,7 @@ mod tests {
         let glitter = Glitter {
             falloff_power: 1.0,
             tumble_speed: 1.0,
+            tumble_axis: Vec3::X,
         };
         let normals = [view_direction];
         let colors_at_start = glitter_colors(&[base_color], &normals, view_direction, glitter);
@@ -147,7 +152,7 @@ mod tests {
             &[base_color],
             &rotate_normals(
                 &normals,
-                tumble_rotation(std::f32::consts::FRAC_PI_2, glitter.tumble_speed),
+                tumble_rotation(std::f32::consts::FRAC_PI_2, glitter),
             ),
             view_direction,
             glitter,
