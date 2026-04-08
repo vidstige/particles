@@ -1,6 +1,7 @@
 use eframe::egui::{self, TextureHandle, TextureOptions};
 use particles::{
     bitmap::Bitmap,
+    color::{Color, Rgba8},
     env::DEFAULT_RESOLUTION,
     glitter_scene::{animated_view, GlitterScene, GlitterSceneSettings, DEFAULT_DURATION},
 };
@@ -87,6 +88,35 @@ impl eframe::App for TweakApp {
                 {
                     self.settings.set_glitter_speed(glitter_speed);
                 }
+
+                ui.separator();
+                ui.heading("Colors");
+
+                let mut foreground = [
+                    (self.settings.theme.foreground.red * 255.0).round() as u8,
+                    (self.settings.theme.foreground.green * 255.0).round() as u8,
+                    (self.settings.theme.foreground.blue * 255.0).round() as u8,
+                ];
+                ui.horizontal(|ui| {
+                    ui.label("Foreground");
+                    if ui.color_edit_button_srgb(&mut foreground).changed() {
+                        self.settings.theme.foreground =
+                            Color::from_rgb8(foreground[0], foreground[1], foreground[2]);
+                    }
+                });
+
+                let mut background = [
+                    self.settings.theme.background.red,
+                    self.settings.theme.background.green,
+                    self.settings.theme.background.blue,
+                ];
+                ui.horizontal(|ui| {
+                    ui.label("Background");
+                    if ui.color_edit_button_srgb(&mut background).changed() {
+                        self.settings.theme.background =
+                            Rgba8::from_rgb(background[0], background[1], background[2]);
+                    }
+                });
             });
 
         self.scene.render(
