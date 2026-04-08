@@ -11,7 +11,9 @@ use particles::{
     depth_field::{DepthField, Render, Theme},
     distribution::{collect, Uniform3},
     env::{resolution, DEFAULT_RESOLUTION},
-    glitter::{glitter_colors, glitter_particles, view_direction, Glitter},
+    glitter::{
+        glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
+    },
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
@@ -63,7 +65,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rest_positions = collect(&mut Uniform3::new(), n, &mut rng);
     let field = simplex_field();
     let base_colors = vec![theme.foreground; n];
-    let glitter_params = glitter_particles(&mut rng, n);
+    let normals = glitter_normals(&mut rng, n);
     let glitter = Glitter {
         falloff_power: 16.0,
         tumble_speed: GLITTER_TUMBLE_SPEED,
@@ -87,7 +89,8 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|rest_position| *rest_position + simplex_offset(&field, *rest_position, w) * 0.45)
             .collect::<Vec<_>>();
         let projected = project_cloud(&bitmap, &positions, projection, view);
-        let colors = glitter_colors(&base_colors, &glitter_params, view_direction, glitter, time);
+        let rotated_normals = rotate_normals(&normals, tumble_rotation(time, glitter.tumble_speed));
+        let colors = glitter_colors(&base_colors, &rotated_normals, view_direction, glitter);
         depth_field.render(&mut bitmap, &projected, &colors);
         output.write_all(bitmap.data())?;
         output.flush()?;
