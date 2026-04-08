@@ -9,7 +9,7 @@ use particles::{
     color::Color,
     color::Rgba8,
     depth_field::{DepthField, Render, Theme},
-    env::resolution,
+    env::{resolution, DEFAULT_RESOLUTION},
     projection::project_cloud,
     resolution::Resolution,
     timeline::Timeline,
@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let depth_field = DepthField {
         focus_depth: 4.0,
         blur: 8.0,
-        particle_radius: 1.0,
+        particle_radius: resolution.area_scale(&DEFAULT_RESOLUTION),
     };
     let mut bitmap = Bitmap::new(resolution);
 

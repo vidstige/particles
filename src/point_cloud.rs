@@ -11,6 +11,7 @@ use crate::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
         Tetrahedron, TorusSurface, Uniform3,
     },
+    env::DEFAULT_RESOLUTION,
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
@@ -150,7 +151,7 @@ fn camera(clouds: &[Vec<Vec3>], resolution: &Resolution) -> (Mat4, Mat4, DepthFi
         DepthField {
             focus_depth: eye.z,
             blur: radius * 0.5,
-            particle_radius: 1.0,
+            particle_radius: resolution.area_scale(&DEFAULT_RESOLUTION),
         },
     )
 }

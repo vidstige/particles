@@ -29,6 +29,10 @@ impl Resolution {
     pub fn area(&self) -> usize {
         (self.width * self.height) as usize
     }
+
+    pub fn area_scale(&self, reference: &Resolution) -> f32 {
+        (self.area() as f32 / reference.area() as f32).sqrt()
+    }
 }
 
 impl FromStr for Resolution {
@@ -58,5 +62,14 @@ mod tests {
         assert_eq!("0x288".parse(), Ok(Resolution::new(0, 288)));
         assert_eq!("512x0".parse(), Ok(Resolution::new(512, 0)));
         assert!("wide x tall".parse::<Resolution>().is_err());
+    }
+
+    #[test]
+    fn area_scale_matches_square_root_of_area_ratio() {
+        let default = Resolution::new(512, 288);
+        let doubled = Resolution::new(1024, 576);
+
+        assert_eq!(default.area_scale(&default), 1.0);
+        assert_eq!(doubled.area_scale(&default), 2.0);
     }
 }

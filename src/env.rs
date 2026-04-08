@@ -2,7 +2,7 @@ use std::{env, error::Error, io};
 
 use crate::resolution::Resolution;
 
-const DEFAULT_RESOLUTION: Resolution = Resolution::new(512, 288);
+pub const DEFAULT_RESOLUTION: Resolution = Resolution::new(512, 288);
 
 pub fn resolution() -> Result<Resolution, Box<dyn Error>> {
     let resolution = match env::var("RESOLUTION") {

@@ -10,7 +10,7 @@ use particles::{
     color::Rgba8,
     depth_field::{DepthField, Render, Theme},
     distribution::{collect, Uniform3},
-    env::resolution,
+    env::{resolution, DEFAULT_RESOLUTION},
     glitter::{glitter_colors, glitter_particles, view_direction, Glitter},
     projection::project_cloud,
     resolution::Resolution,
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let depth_field = DepthField {
         focus_depth: 2.0,
         blur: 2.0,
-        particle_radius: 1.0,
+        particle_radius: resolution.area_scale(&DEFAULT_RESOLUTION),
     };
     let mut bitmap = Bitmap::new(resolution);
 
