@@ -84,5 +84,4 @@ mod tests {
         assert_eq!(bitmap.pixel(2, 0), None);
         assert_eq!(bitmap.pixel(0, 2), None);
     }
-
 }
