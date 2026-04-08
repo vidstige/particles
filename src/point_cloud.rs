@@ -6,12 +6,12 @@ use crate::{
     assignment::auction_assignment,
     bitmap::Bitmap,
     cubic_hermite3::CubicHermite3,
+    depth_field::{DepthField, Render, Theme},
     distribution::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
         Tetrahedron, TorusSurface, Uniform3,
     },
     projection::project_cloud,
-    render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     rng::Rng,
 };
@@ -188,7 +188,7 @@ pub fn render(
             let mut bitmap = Bitmap::new(resolution.clone());
             bitmap.fill(theme.background);
             let positions = project_cloud(&bitmap, &cloud, projection, view);
-            render_cloud(&mut bitmap, &positions, &colors, depth_field);
+            depth_field.render(&mut bitmap, &positions, &colors);
             output.write_all(bitmap.data())?;
             output.flush()?;
         }

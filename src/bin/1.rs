@@ -8,9 +8,9 @@ use particles::{
     bitmap::Bitmap,
     color::Color,
     color::Rgba8,
+    depth_field::{DepthField, Render, Theme},
     env::resolution,
     projection::project_cloud,
-    render::{render_cloud, DepthField, Theme},
     resolution::Resolution,
     timeline::Timeline,
 };
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let positions = timeline.particles(time);
         let view = timeline.view(time);
         let projected = project_cloud(&bitmap, &positions, projection, view);
-        render_cloud(&mut bitmap, &projected, &colors, depth_field);
+        depth_field.render(&mut bitmap, &projected, &colors);
         output.write_all(bitmap.data())?;
         output.flush()?;
     }

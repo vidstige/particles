@@ -16,12 +16,20 @@ pub struct DepthField {
     pub blur: f32,
 }
 
+pub trait Render {
+    fn render(&self, target: &mut Bitmap, positions: &[Option<Vec3>], colors: &[Color]);
+}
+
 fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
-pub(crate) fn render_cloud_with_alpha_scale(
-    bitmap: &mut Bitmap,
+fn overflow_scale(color: Color) -> f32 {
+    color.red.max(color.green).max(color.blue).max(1.0)
+}
+
+fn render_cloud_with_alpha_scale(
+    target: &mut Bitmap,
     positions: &[Option<Vec3>],
     colors: &[Color],
     depth_field: DepthField,
@@ -36,15 +44,12 @@ pub(crate) fn render_cloud_with_alpha_scale(
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
         let radius = PARTICLE_RADIUS + depth_field.blur * focal_distance;
         let alpha = circle_area(PARTICLE_RADIUS) / circle_area(radius) * alpha_scale(color);
-        draw_disk(bitmap, particle.truncate(), radius, color.to_rgba8(alpha));
+        draw_disk(target, particle.truncate(), radius, color.to_rgba8(alpha));
     }
 }
 
-pub fn render_cloud(
-    bitmap: &mut Bitmap,
-    positions: &[Option<Vec3>],
-    colors: &[Color],
-    depth_field: DepthField,
-) {
-    render_cloud_with_alpha_scale(bitmap, positions, colors, depth_field, |_| 1.0);
+impl Render for DepthField {
+    fn render(&self, target: &mut Bitmap, positions: &[Option<Vec3>], colors: &[Color]) {
+        render_cloud_with_alpha_scale(target, positions, colors, *self, overflow_scale);
+    }
 }

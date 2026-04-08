@@ -8,12 +8,11 @@ use particles::{
     bitmap::Bitmap,
     color::Color,
     color::Rgba8,
+    depth_field::{DepthField, Render, Theme},
     distribution::{collect, Uniform3},
     env::resolution,
     glitter::{glitter_colors, glitter_particles, view_direction, Glitter},
     projection::project_cloud,
-    render::{DepthField, Theme},
-    render2::render_cloud,
     resolution::Resolution,
     rng::Rng,
     simplex::SimplexNoise,
@@ -60,7 +59,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let simplex_speed = 0.125;
     let frame_count = (duration * fps) as usize;
     let mut rng = Rng::new(0x1234_5678);
-    let n = 8*1024;
+    let n = 8 * 1024;
     let rest_positions = collect(&mut Uniform3::new(), n, &mut rng);
     let field = simplex_field();
     let base_colors = vec![theme.foreground; n];
@@ -88,7 +87,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             .collect::<Vec<_>>();
         let projected = project_cloud(&bitmap, &positions, projection, view);
         let colors = glitter_colors(&base_colors, &glitter_params, view_direction, glitter, time);
-        render_cloud(&mut bitmap, &projected, &colors, depth_field);
+        depth_field.render(&mut bitmap, &projected, &colors);
         output.write_all(bitmap.data())?;
         output.flush()?;
     }
