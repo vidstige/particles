@@ -8,6 +8,7 @@ pub mod distribution;
 pub mod env;
 pub mod gerstner;
 pub mod glitter;
+pub mod glitter_scene;
 pub mod point_cloud;
 pub mod projection;
 pub mod resolution;
