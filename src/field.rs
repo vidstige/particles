@@ -2,10 +2,12 @@ use std::ops::MulAssign;
 
 use glam::Vec2;
 
+use crate::resolution::Resolution;
+
 pub struct Field<T> {
-    size: usize,
+    resolution: Resolution,
     bounds: f32,
-    cell_size: f32,
+    cell_size: Vec2,
     values: Vec<T>,
 }
 
@@ -23,65 +25,81 @@ pub fn divergence_at(field: &Field<Vec2>, x: usize, y: usize) -> f32 {
     let y = y as isize;
     let vx = field.values[field.index(x, y)].x - field.values[field.index(x - 1, y)].x;
     let vy = field.values[field.index(x, y)].y - field.values[field.index(x, y - 1)].y;
-    (vx + vy) / field.cell_size
+    vx / field.cell_size.x + vy / field.cell_size.y
 }
 
 pub fn project_divergence_free(field: &mut Field<Vec2>, iterations: usize) {
     let mut divergence = vec![0.0; field.values.len()];
-    for y in 0..field.size {
-        for x in 0..field.size {
+    for y in 0..field.height() {
+        for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
             divergence[index] = divergence_at(field, x, y);
         }
     }
     let mut pressure = vec![0.0; field.values.len()];
     let mut next_pressure = vec![0.0; field.values.len()];
-    let cell_size_squared = field.cell_size * field.cell_size;
+    let inverse_dx2 = 1.0 / field.cell_size.x.powi(2);
+    let inverse_dy2 = 1.0 / field.cell_size.y.powi(2);
+    let scale = 0.5 / (inverse_dx2 + inverse_dy2);
 
     for _ in 0..iterations {
-        for y in 0..field.size {
-            for x in 0..field.size {
+        for y in 0..field.height() {
+            for x in 0..field.width() {
                 let index = field.index(x as isize, y as isize);
                 let left = pressure[field.index(x as isize - 1, y as isize)];
                 let right = pressure[field.index(x as isize + 1, y as isize)];
                 let down = pressure[field.index(x as isize, y as isize - 1)];
                 let up = pressure[field.index(x as isize, y as isize + 1)];
-                next_pressure[index] =
-                    (left + right + down + up - cell_size_squared * divergence[index]) * 0.25;
+                next_pressure[index] = ((left + right) * inverse_dx2 + (down + up) * inverse_dy2
+                    - divergence[index])
+                    * scale;
             }
         }
         std::mem::swap(&mut pressure, &mut next_pressure);
     }
 
-    for y in 0..field.size {
-        for x in 0..field.size {
+    for y in 0..field.height() {
+        for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
             let grad_x = (pressure[field.index(x as isize + 1, y as isize)] - pressure[index])
-                / field.cell_size;
+                / field.cell_size.x;
             let grad_y = (pressure[field.index(x as isize, y as isize + 1)] - pressure[index])
-                / field.cell_size;
+                / field.cell_size.y;
             field.values[index] -= Vec2::new(grad_x, grad_y);
         }
     }
 }
 
 impl<T: Clone> Field<T> {
-    pub fn new(size: usize, bounds: f32, value: T) -> Self {
+    pub fn new(resolution: Resolution, bounds: f32, value: T) -> Self {
+        assert!(resolution.area() > 0);
         Self {
-            size,
+            cell_size: Vec2::new(
+                bounds * 2.0 / resolution.width as f32,
+                bounds * 2.0 / resolution.height as f32,
+            ),
+            values: vec![value; resolution.area()],
+            resolution,
             bounds,
-            cell_size: bounds * 2.0 / size as f32,
-            values: vec![value; size * size],
         }
     }
 }
 
 impl<T> Field<T> {
     fn index(&self, x: isize, y: isize) -> usize {
-        let size = self.size as isize;
-        let x = x.rem_euclid(size) as usize;
-        let y = y.rem_euclid(size) as usize;
-        y * self.size + x
+        let width = self.resolution.width as isize;
+        let height = self.resolution.height as isize;
+        let x = x.rem_euclid(width) as usize;
+        let y = y.rem_euclid(height) as usize;
+        y * self.width() + x
+    }
+
+    fn width(&self) -> usize {
+        self.resolution.width as usize
+    }
+
+    fn height(&self) -> usize {
+        self.resolution.height as usize
     }
 
     pub fn bounds(&self) -> f32 {
@@ -89,10 +107,10 @@ impl<T> Field<T> {
     }
 
     pub fn cell_center(&self, x: usize, y: usize) -> Vec2 {
-        let min = -self.bounds + self.cell_size * 0.5;
+        let min = Vec2::splat(-self.bounds) + self.cell_size * 0.5;
         Vec2::new(
-            min + x as f32 * self.cell_size,
-            min + y as f32 * self.cell_size,
+            min.x + x as f32 * self.cell_size.x,
+            min.y + y as f32 * self.cell_size.y,
         )
     }
 
@@ -139,8 +157,8 @@ impl MulAssign<f32> for Field<Vec2> {
 #[cfg(test)]
 fn divergence_rms(field: &Field<Vec2>) -> f32 {
     let mut mean_square = 0.0;
-    for y in 0..field.size {
-        for x in 0..field.size {
+    for y in 0..field.height() {
+        for x in 0..field.width() {
             mean_square += divergence_at(field, x, y).powi(2);
         }
     }
@@ -152,11 +170,13 @@ fn divergence_rms(field: &Field<Vec2>) -> f32 {
 mod tests {
     use glam::Vec2;
 
+    use crate::resolution::Resolution;
+
     use super::{divergence_rms, project_divergence_free, Field};
 
     #[test]
     fn mean_length_scales_with_uniform_field_scaling() {
-        let mut field = Field::new(4, 1.0, Vec2::new(3.0, 4.0));
+        let mut field = Field::new(Resolution::new(4, 3), 1.0, Vec2::new(3.0, 4.0));
 
         assert_eq!(field.mean_length(), 5.0);
 
@@ -167,13 +187,12 @@ mod tests {
 
     #[test]
     fn projection_reduces_field_divergence() {
-        let mut field = Field::new(32, 1.0, Vec2::ZERO);
+        let mut field = Field::new(Resolution::new(32, 24), 1.0, Vec2::ZERO);
 
-        for y in 0..field.size {
-            for x in 0..field.size {
-                let index = field.index(x as isize, y as isize);
+        for y in 0..field.height() {
+            for x in 0..field.width() {
                 let point = field.cell_center(x, y);
-                field.values[index] = point * 0.5;
+                field.set(x, y, point * 0.5);
             }
         }
 
