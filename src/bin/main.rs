@@ -9,7 +9,7 @@ use particles::{
     color::{Color, Rgba8},
     depth_field::{DepthField, Render, Theme},
     env::{resolution, DEFAULT_RESOLUTION},
-    field::{project_divergence_free, Field},
+    field::{project_incompressible, Field},
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
@@ -66,7 +66,7 @@ impl SwirlScene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
         let mut field = from_simplex(FIELD_RESOLUTION, FIELD_SIZE);
-        project_divergence_free(&mut field, PRESSURE_ITERATIONS);
+        project_incompressible(&mut field, PRESSURE_ITERATIONS);
         field *= MEAN_SPEED / field.mean_length();
         let positions = (0..PARTICLE_COUNT)
             .map(|_| {

@@ -28,47 +28,75 @@ pub fn divergence_at(field: &Field<Vec2>, x: usize, y: usize) -> f32 {
     vx / cell_size.x + vy / cell_size.y
 }
 
-pub fn project_divergence_free(field: &mut Field<Vec2>, iterations: usize) {
-    let mut divergence = vec![0.0; field.values.len()];
+fn new_like<T, U>(field: &Field<U>, value: T) -> Field<T>
+where
+    T: Clone,
+{
+    Field::new(field.resolution.clone(), field.size, value)
+}
+
+pub fn divergence(field: &Field<Vec2>) -> Field<f32> {
+    let mut divergence = new_like(field, 0.0);
     for y in 0..field.height() {
         for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
-            divergence[index] = divergence_at(field, x, y);
+            divergence.values[index] = divergence_at(field, x, y);
         }
     }
-    let mut pressure = vec![0.0; field.values.len()];
-    let mut next_pressure = vec![0.0; field.values.len()];
-    let cell_size = field.cell_size();
+
+    divergence
+}
+
+pub fn solve_poisson_jacobi(right_hand_side: &Field<f32>, iterations: usize) -> Field<f32> {
+    let mut pressure = new_like(right_hand_side, 0.0);
+    let mut next_pressure = new_like(right_hand_side, 0.0);
+    let cell_size = right_hand_side.cell_size();
     let inverse_dx2 = 1.0 / cell_size.x.powi(2);
     let inverse_dy2 = 1.0 / cell_size.y.powi(2);
     let scale = 0.5 / (inverse_dx2 + inverse_dy2);
 
     for _ in 0..iterations {
-        for y in 0..field.height() {
-            for x in 0..field.width() {
-                let index = field.index(x as isize, y as isize);
-                let left = pressure[field.index(x as isize - 1, y as isize)];
-                let right = pressure[field.index(x as isize + 1, y as isize)];
-                let down = pressure[field.index(x as isize, y as isize - 1)];
-                let up = pressure[field.index(x as isize, y as isize + 1)];
-                next_pressure[index] = ((left + right) * inverse_dx2 + (down + up) * inverse_dy2
-                    - divergence[index])
+        for y in 0..right_hand_side.height() {
+            for x in 0..right_hand_side.width() {
+                let index = right_hand_side.index(x as isize, y as isize);
+                let left = pressure.values[right_hand_side.index(x as isize - 1, y as isize)];
+                let right = pressure.values[right_hand_side.index(x as isize + 1, y as isize)];
+                let down = pressure.values[right_hand_side.index(x as isize, y as isize - 1)];
+                let up = pressure.values[right_hand_side.index(x as isize, y as isize + 1)];
+                next_pressure.values[index] = ((left + right) * inverse_dx2
+                    + (down + up) * inverse_dy2
+                    - right_hand_side.values[index])
                     * scale;
             }
         }
         std::mem::swap(&mut pressure, &mut next_pressure);
     }
 
+    pressure
+}
+
+pub fn subtract_gradient(field: &mut Field<Vec2>, scalar: &Field<f32>) {
+    assert_eq!(field.resolution, scalar.resolution);
+    assert_eq!(field.size, scalar.size);
+
+    let cell_size = field.cell_size();
     for y in 0..field.height() {
         for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
-            let grad_x =
-                (pressure[field.index(x as isize + 1, y as isize)] - pressure[index]) / cell_size.x;
-            let grad_y =
-                (pressure[field.index(x as isize, y as isize + 1)] - pressure[index]) / cell_size.y;
+            let grad_x = (scalar.values[field.index(x as isize + 1, y as isize)]
+                - scalar.values[index])
+                / cell_size.x;
+            let grad_y = (scalar.values[field.index(x as isize, y as isize + 1)]
+                - scalar.values[index])
+                / cell_size.y;
             field.values[index] -= Vec2::new(grad_x, grad_y);
         }
     }
+}
+
+pub fn project_incompressible(field: &mut Field<Vec2>, iterations: usize) {
+    let pressure = solve_poisson_jacobi(&divergence(field), iterations);
+    subtract_gradient(field, &pressure);
 }
 
 impl<T: Clone> Field<T> {
@@ -157,13 +185,12 @@ impl MulAssign<f32> for Field<Vec2> {
 
 #[cfg(test)]
 fn divergence_rms(field: &Field<Vec2>) -> f32 {
-    let mut mean_square = 0.0;
-    for y in 0..field.height() {
-        for x in 0..field.width() {
-            mean_square += divergence_at(field, x, y).powi(2);
-        }
-    }
-    mean_square /= field.values.len() as f32;
+    let mean_square = divergence(field)
+        .values
+        .into_iter()
+        .map(|value| value.powi(2))
+        .sum::<f32>()
+        / field.values.len() as f32;
     mean_square.sqrt()
 }
 
@@ -173,7 +200,7 @@ mod tests {
 
     use crate::resolution::Resolution;
 
-    use super::{divergence_rms, project_divergence_free, Field};
+    use super::{divergence_rms, project_incompressible, Field};
 
     #[test]
     fn sample_returns_grid_corner_positions() {
@@ -211,7 +238,7 @@ mod tests {
         }
 
         let before = divergence_rms(&field);
-        project_divergence_free(&mut field, 80);
+        project_incompressible(&mut field, 80);
         let after = divergence_rms(&field);
 
         assert!(after < before * 0.2, "{before} -> {after}");
