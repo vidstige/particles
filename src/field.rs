@@ -40,28 +40,37 @@ pub fn divergence(field: &Field<Vec2>) -> Field<f32> {
     divergence
 }
 
-pub fn subtract_gradient(field: &mut Field<Vec2>, scalar: &Field<f32>) {
-    assert_eq!(field.resolution, scalar.resolution);
-    assert_eq!(field.size, scalar.size);
-
+pub fn gradient(field: &Field<f32>) -> Field<Vec2> {
+    let mut gradient = field.new_like(Vec2::ZERO);
     let cell_size = field.cell_size();
     for y in 0..field.height() {
         for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
-            let grad_x = (scalar.values[field.index(x as isize + 1, y as isize)]
-                - scalar.values[index])
+            let grad_x = (field.values[field.index(x as isize + 1, y as isize)]
+                - field.values[index])
                 / cell_size.x;
-            let grad_y = (scalar.values[field.index(x as isize, y as isize + 1)]
-                - scalar.values[index])
+            let grad_y = (field.values[field.index(x as isize, y as isize + 1)]
+                - field.values[index])
                 / cell_size.y;
-            field.values[index] -= Vec2::new(grad_x, grad_y);
+            gradient.set_index(index, Vec2::new(grad_x, grad_y));
         }
+    }
+
+    gradient
+}
+
+pub fn subtract(left: &mut Field<Vec2>, right: &Field<Vec2>) {
+    assert_eq!(left.resolution, right.resolution);
+    assert_eq!(left.size, right.size);
+
+    for (left, right) in left.values.iter_mut().zip(&right.values) {
+        *left -= *right;
     }
 }
 
 pub fn project_incompressible(field: &mut Field<Vec2>, iterations: usize) {
     let pressure = solve_poisson_jacobi(&divergence(field), iterations);
-    subtract_gradient(field, &pressure);
+    subtract(field, &gradient(&pressure));
 }
 
 impl<T: Clone> Field<T> {
@@ -185,6 +194,19 @@ mod tests {
 
     use super::{divergence_rms, project_incompressible, Field};
 
+    fn divergent_field(resolution: Resolution) -> Field<Vec2> {
+        let mut field = Field::new(resolution, Vec2::new(2.0, 2.0), Vec2::ZERO);
+
+        for y in 0..field.height() {
+            for x in 0..field.width() {
+                let point = field.sample(x, y);
+                field.set(x, y, point * 0.5);
+            }
+        }
+
+        field
+    }
+
     #[test]
     fn sample_returns_grid_corner_positions() {
         let field = Field::new(Resolution::new(4, 2), Vec2::new(8.0, 6.0), Vec2::ZERO);
@@ -211,14 +233,7 @@ mod tests {
 
     #[test]
     fn projection_reduces_field_divergence() {
-        let mut field = Field::new(Resolution::new(32, 24), Vec2::new(2.0, 2.0), Vec2::ZERO);
-
-        for y in 0..field.height() {
-            for x in 0..field.width() {
-                let point = field.sample(x, y);
-                field.set(x, y, point * 0.5);
-            }
-        }
+        let mut field = divergent_field(Resolution::new(32, 24));
 
         let before = divergence_rms(&field);
         project_incompressible(&mut field, 80);
