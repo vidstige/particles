@@ -6,14 +6,13 @@ use crate::resolution::Resolution;
 
 pub struct Field<T> {
     resolution: Resolution,
-    // Full world-space size of the field, centered on the origin.
+    // Full world-space size of the field.
     size: Vec2,
     values: Vec<T>,
 }
 
 fn wrap(value: f32, size: f32) -> f32 {
-    let half_size = size * 0.5;
-    (value + half_size).rem_euclid(size) - half_size
+    value.rem_euclid(size)
 }
 
 fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
@@ -113,10 +112,9 @@ impl<T> Field<T> {
 
     pub fn sample(&self, x: usize, y: usize) -> Vec2 {
         let cell_size = self.cell_size();
-        let min = -self.size * 0.5 + cell_size * 0.5;
         Vec2::new(
-            min.x + x as f32 * cell_size.x,
-            min.y + y as f32 * cell_size.y,
+            (x as f32 + 0.5) * cell_size.x,
+            (y as f32 + 0.5) * cell_size.y,
         )
     }
 
@@ -137,7 +135,7 @@ impl Field<Vec2> {
 
     pub fn interpolate(&self, point: Vec2) -> Vec2 {
         let point = wrap_point(point, self.size);
-        let grid = (point + self.size * 0.5) / self.cell_size() - Vec2::splat(0.5);
+        let grid = point / self.cell_size() - Vec2::splat(0.5);
         let base = grid.floor();
         let fraction = grid - base;
         let x = base.x as isize;

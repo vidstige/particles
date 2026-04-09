@@ -26,8 +26,7 @@ const PARTICLE_COUNT: usize = 8 * 1024;
 const MEAN_SPEED: f32 = 0.35;
 
 fn wrap(value: f32, size: f32) -> f32 {
-    let half_size = size * 0.5;
-    (value + half_size).rem_euclid(size) - half_size
+    value.rem_euclid(size)
 }
 
 fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
@@ -45,11 +44,10 @@ fn from_simplex(
     let mut field = Field::new(resolution, size, Vec2::ZERO);
     let x_noise = SimplexNoise::new(0x1f2e_3d4c, 1.3, 1.0);
     let y_noise = SimplexNoise::new(0x5a69_7887, 1.3, 1.0);
-    let noise_scale = size * 0.5;
 
     for y in 0..height {
         for x in 0..width {
-            let point = field.sample(x, y) / noise_scale;
+            let point = field.sample(x, y) / size;
             field.set(
                 x,
                 y,
@@ -74,12 +72,11 @@ struct SwirlScene {
 impl SwirlScene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
-        let half_size = FIELD_SIZE * 0.5;
         let positions = (0..PARTICLE_COUNT)
             .map(|_| {
                 Vec2::new(
-                    rng.next_f32_in(-half_size.x, half_size.x),
-                    rng.next_f32_in(-half_size.y, half_size.y),
+                    rng.next_f32_in(0.0, FIELD_SIZE.x),
+                    rng.next_f32_in(0.0, FIELD_SIZE.y),
                 )
             })
             .collect();
@@ -105,9 +102,13 @@ impl SwirlScene {
     }
 
     fn cloud(&self) -> Vec<Vec3> {
+        let offset = self.field.size() * 0.5;
         self.positions
             .iter()
-            .map(|position| Vec3::new(position.x, 0.0, position.y))
+            .map(|position| {
+                let position = *position - offset;
+                Vec3::new(position.x, 0.0, position.y)
+            })
             .collect()
     }
 }
