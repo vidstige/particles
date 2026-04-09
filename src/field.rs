@@ -6,18 +6,18 @@ use crate::resolution::Resolution;
 
 pub struct Field<T> {
     resolution: Resolution,
-    bounds: f32,
-    cell_size: Vec2,
+    // Full world-space size of the field, centered on the origin.
+    size: Vec2,
     values: Vec<T>,
 }
 
-fn wrap(value: f32, bounds: f32) -> f32 {
-    let span = bounds * 2.0;
-    (value + bounds).rem_euclid(span) - bounds
+fn wrap(value: f32, size: f32) -> f32 {
+    let half_size = size * 0.5;
+    (value + half_size).rem_euclid(size) - half_size
 }
 
-fn wrap_point(point: Vec2, bounds: f32) -> Vec2 {
-    Vec2::new(wrap(point.x, bounds), wrap(point.y, bounds))
+fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
+    Vec2::new(wrap(point.x, size.x), wrap(point.y, size.y))
 }
 
 pub fn divergence_at(field: &Field<Vec2>, x: usize, y: usize) -> f32 {
@@ -25,7 +25,8 @@ pub fn divergence_at(field: &Field<Vec2>, x: usize, y: usize) -> f32 {
     let y = y as isize;
     let vx = field.values[field.index(x, y)].x - field.values[field.index(x - 1, y)].x;
     let vy = field.values[field.index(x, y)].y - field.values[field.index(x, y - 1)].y;
-    vx / field.cell_size.x + vy / field.cell_size.y
+    let cell_size = field.cell_size();
+    vx / cell_size.x + vy / cell_size.y
 }
 
 pub fn project_divergence_free(field: &mut Field<Vec2>, iterations: usize) {
@@ -38,8 +39,9 @@ pub fn project_divergence_free(field: &mut Field<Vec2>, iterations: usize) {
     }
     let mut pressure = vec![0.0; field.values.len()];
     let mut next_pressure = vec![0.0; field.values.len()];
-    let inverse_dx2 = 1.0 / field.cell_size.x.powi(2);
-    let inverse_dy2 = 1.0 / field.cell_size.y.powi(2);
+    let cell_size = field.cell_size();
+    let inverse_dx2 = 1.0 / cell_size.x.powi(2);
+    let inverse_dy2 = 1.0 / cell_size.y.powi(2);
     let scale = 0.5 / (inverse_dx2 + inverse_dy2);
 
     for _ in 0..iterations {
@@ -61,26 +63,22 @@ pub fn project_divergence_free(field: &mut Field<Vec2>, iterations: usize) {
     for y in 0..field.height() {
         for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
-            let grad_x = (pressure[field.index(x as isize + 1, y as isize)] - pressure[index])
-                / field.cell_size.x;
-            let grad_y = (pressure[field.index(x as isize, y as isize + 1)] - pressure[index])
-                / field.cell_size.y;
+            let grad_x =
+                (pressure[field.index(x as isize + 1, y as isize)] - pressure[index]) / cell_size.x;
+            let grad_y =
+                (pressure[field.index(x as isize, y as isize + 1)] - pressure[index]) / cell_size.y;
             field.values[index] -= Vec2::new(grad_x, grad_y);
         }
     }
 }
 
 impl<T: Clone> Field<T> {
-    pub fn new(resolution: Resolution, bounds: f32, value: T) -> Self {
+    pub fn new(resolution: Resolution, size: Vec2, value: T) -> Self {
         assert!(resolution.area() > 0);
         Self {
-            cell_size: Vec2::new(
-                bounds * 2.0 / resolution.width as f32,
-                bounds * 2.0 / resolution.height as f32,
-            ),
             values: vec![value; resolution.area()],
             resolution,
-            bounds,
+            size,
         }
     }
 }
@@ -102,15 +100,23 @@ impl<T> Field<T> {
         self.resolution.height as usize
     }
 
-    pub fn bounds(&self) -> f32 {
-        self.bounds
+    fn cell_size(&self) -> Vec2 {
+        Vec2::new(
+            self.size.x / self.resolution.width as f32,
+            self.size.y / self.resolution.height as f32,
+        )
+    }
+
+    pub fn size(&self) -> Vec2 {
+        self.size
     }
 
     pub fn cell_center(&self, x: usize, y: usize) -> Vec2 {
-        let min = Vec2::splat(-self.bounds) + self.cell_size * 0.5;
+        let cell_size = self.cell_size();
+        let min = -self.size * 0.5 + cell_size * 0.5;
         Vec2::new(
-            min.x + x as f32 * self.cell_size.x,
-            min.y + y as f32 * self.cell_size.y,
+            min.x + x as f32 * cell_size.x,
+            min.y + y as f32 * cell_size.y,
         )
     }
 
@@ -130,8 +136,8 @@ impl Field<Vec2> {
     }
 
     pub fn sample(&self, point: Vec2) -> Vec2 {
-        let point = wrap_point(point, self.bounds);
-        let grid = (point + Vec2::splat(self.bounds)) / self.cell_size - Vec2::splat(0.5);
+        let point = wrap_point(point, self.size);
+        let grid = (point + self.size * 0.5) / self.cell_size() - Vec2::splat(0.5);
         let base = grid.floor();
         let fraction = grid - base;
         let x = base.x as isize;
@@ -176,7 +182,11 @@ mod tests {
 
     #[test]
     fn mean_length_scales_with_uniform_field_scaling() {
-        let mut field = Field::new(Resolution::new(4, 3), 1.0, Vec2::new(3.0, 4.0));
+        let mut field = Field::new(
+            Resolution::new(4, 3),
+            Vec2::new(2.0, 2.0),
+            Vec2::new(3.0, 4.0),
+        );
 
         assert_eq!(field.mean_length(), 5.0);
 
@@ -187,7 +197,7 @@ mod tests {
 
     #[test]
     fn projection_reduces_field_divergence() {
-        let mut field = Field::new(Resolution::new(32, 24), 1.0, Vec2::ZERO);
+        let mut field = Field::new(Resolution::new(32, 24), Vec2::new(2.0, 2.0), Vec2::ZERO);
 
         for y in 0..field.height() {
             for x in 0..field.width() {

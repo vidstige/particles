@@ -20,35 +20,36 @@ const DURATION: f32 = 24.0;
 const FPS: f32 = 30.0;
 const DT: f32 = 1.0 / FPS;
 const FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
-const FIELD_BOUNDS: f32 = 1.6;
+const FIELD_SIZE: Vec2 = Vec2::new(3.2, 3.2);
 const PRESSURE_ITERATIONS: usize = 160;
 const PARTICLE_COUNT: usize = 8 * 1024;
 const MEAN_SPEED: f32 = 0.35;
 
-fn wrap(value: f32, bounds: f32) -> f32 {
-    let span = bounds * 2.0;
-    (value + bounds).rem_euclid(span) - bounds
+fn wrap(value: f32, size: f32) -> f32 {
+    let half_size = size * 0.5;
+    (value + half_size).rem_euclid(size) - half_size
 }
 
-fn wrap_point(point: Vec2, bounds: f32) -> Vec2 {
-    Vec2::new(wrap(point.x, bounds), wrap(point.y, bounds))
+fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
+    Vec2::new(wrap(point.x, size.x), wrap(point.y, size.y))
 }
 
 fn from_simplex(
     resolution: Resolution,
-    bounds: f32,
+    size: Vec2,
     projection_iterations: usize,
     mean_speed: f32,
 ) -> Field<Vec2> {
     let width = resolution.width as usize;
     let height = resolution.height as usize;
-    let mut field = Field::new(resolution, bounds, Vec2::ZERO);
+    let mut field = Field::new(resolution, size, Vec2::ZERO);
     let x_noise = SimplexNoise::new(0x1f2e_3d4c, 1.3, 1.0);
     let y_noise = SimplexNoise::new(0x5a69_7887, 1.3, 1.0);
+    let noise_scale = size * 0.5;
 
     for y in 0..height {
         for x in 0..width {
-            let point = field.cell_center(x, y) / bounds;
+            let point = field.cell_center(x, y) / noise_scale;
             field.set(
                 x,
                 y,
@@ -73,11 +74,12 @@ struct SwirlScene {
 impl SwirlScene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
+        let half_size = FIELD_SIZE * 0.5;
         let positions = (0..PARTICLE_COUNT)
             .map(|_| {
                 Vec2::new(
-                    rng.next_f32_in(-FIELD_BOUNDS, FIELD_BOUNDS),
-                    rng.next_f32_in(-FIELD_BOUNDS, FIELD_BOUNDS),
+                    rng.next_f32_in(-half_size.x, half_size.x),
+                    rng.next_f32_in(-half_size.y, half_size.y),
                 )
             })
             .collect();
@@ -85,7 +87,7 @@ impl SwirlScene {
         Self {
             field: from_simplex(
                 FIELD_RESOLUTION,
-                FIELD_BOUNDS,
+                FIELD_SIZE,
                 PRESSURE_ITERATIONS,
                 MEAN_SPEED,
             ),
@@ -97,7 +99,7 @@ impl SwirlScene {
         for position in &mut self.positions {
             *position = wrap_point(
                 *position + self.field.sample(*position) * dt,
-                self.field.bounds(),
+                self.field.size(),
             );
         }
     }
