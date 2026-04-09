@@ -33,12 +33,7 @@ fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
     Vec2::new(wrap(point.x, size.x), wrap(point.y, size.y))
 }
 
-fn from_simplex(
-    resolution: Resolution,
-    size: Vec2,
-    projection_iterations: usize,
-    mean_speed: f32,
-) -> Field<Vec2> {
+fn from_simplex(resolution: Resolution, size: Vec2) -> Field<Vec2> {
     let width = resolution.width as usize;
     let height = resolution.height as usize;
     let mut field = Field::new(resolution, size, Vec2::ZERO);
@@ -59,8 +54,6 @@ fn from_simplex(
         }
     }
 
-    project_divergence_free(&mut field, projection_iterations);
-    field *= mean_speed / field.mean_length();
     field
 }
 
@@ -72,6 +65,9 @@ struct SwirlScene {
 impl SwirlScene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
+        let mut field = from_simplex(FIELD_RESOLUTION, FIELD_SIZE);
+        project_divergence_free(&mut field, PRESSURE_ITERATIONS);
+        field *= MEAN_SPEED / field.mean_length();
         let positions = (0..PARTICLE_COUNT)
             .map(|_| {
                 Vec2::new(
@@ -81,15 +77,7 @@ impl SwirlScene {
             })
             .collect();
 
-        Self {
-            field: from_simplex(
-                FIELD_RESOLUTION,
-                FIELD_SIZE,
-                PRESSURE_ITERATIONS,
-                MEAN_SPEED,
-            ),
-            positions,
-        }
+        Self { field, positions }
     }
 
     fn advance(&mut self, dt: f32) {
