@@ -3,16 +3,17 @@ use std::{
     io::{self, Write},
 };
 
-use glam::{Mat4, Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     depth_field::{DepthField, Render, Theme},
     env::{resolution, DEFAULT_RESOLUTION},
-    field::{from_simplex, Field},
+    field::{project_divergence_free, Field},
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
+    simplex::SimplexNoise,
 };
 
 const DURATION: f32 = 24.0;
@@ -31,6 +32,35 @@ fn wrap(value: f32, bounds: f32) -> f32 {
 
 fn wrap_point(point: Vec2, bounds: f32) -> Vec2 {
     Vec2::new(wrap(point.x, bounds), wrap(point.y, bounds))
+}
+
+fn from_simplex(
+    size: usize,
+    bounds: f32,
+    projection_iterations: usize,
+    mean_speed: f32,
+) -> Field<Vec2> {
+    let mut field = Field::new(size, bounds, Vec2::ZERO);
+    let x_noise = SimplexNoise::new(0x1f2e_3d4c, 1.3, 1.0);
+    let y_noise = SimplexNoise::new(0x5a69_7887, 1.3, 1.0);
+
+    for y in 0..size {
+        for x in 0..size {
+            let point = field.cell_center(x, y) / bounds;
+            field.set(
+                x,
+                y,
+                Vec2::new(
+                    x_noise.sample(Vec4::new(point.x, point.y, 0.17, 0.0)),
+                    y_noise.sample(Vec4::new(point.x, point.y, 3.41, 0.0)),
+                ),
+            );
+        }
+    }
+
+    project_divergence_free(&mut field, projection_iterations);
+    field *= mean_speed / field.mean_length();
+    field
 }
 
 struct SwirlScene {

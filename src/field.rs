@@ -1,8 +1,6 @@
 use std::ops::MulAssign;
 
-use glam::{Vec2, Vec4};
-
-use crate::simplex::SimplexNoise;
+use glam::Vec2;
 
 pub struct Field<T> {
     size: usize,
@@ -67,32 +65,6 @@ pub fn project_divergence_free(field: &mut Field<Vec2>, iterations: usize) {
     }
 }
 
-pub fn from_simplex(
-    size: usize,
-    bounds: f32,
-    projection_iterations: usize,
-    mean_speed: f32,
-) -> Field<Vec2> {
-    let mut field = Field::new(size, bounds, Vec2::ZERO);
-    let x_noise = SimplexNoise::new(0x1f2e_3d4c, 1.3, 1.0);
-    let y_noise = SimplexNoise::new(0x5a69_7887, 1.3, 1.0);
-
-    for y in 0..size {
-        for x in 0..size {
-            let index = field.index(x as isize, y as isize);
-            let point = field.cell_center(x, y) / bounds;
-            field.values[index] = Vec2::new(
-                x_noise.sample(Vec4::new(point.x, point.y, 0.17, 0.0)),
-                y_noise.sample(Vec4::new(point.x, point.y, 3.41, 0.0)),
-            );
-        }
-    }
-
-    project_divergence_free(&mut field, projection_iterations);
-    field *= mean_speed / field.mean_length();
-    field
-}
-
 impl<T: Clone> Field<T> {
     pub fn new(size: usize, bounds: f32, value: T) -> Self {
         Self {
@@ -122,6 +94,11 @@ impl<T> Field<T> {
             min + x as f32 * self.cell_size,
             min + y as f32 * self.cell_size,
         )
+    }
+
+    pub fn set(&mut self, x: usize, y: usize, value: T) {
+        let index = self.index(x as isize, y as isize);
+        self.values[index] = value;
     }
 }
 
