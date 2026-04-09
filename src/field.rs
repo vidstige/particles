@@ -111,7 +111,7 @@ impl<T> Field<T> {
         self.size
     }
 
-    pub fn cell_center(&self, x: usize, y: usize) -> Vec2 {
+    pub fn sample(&self, x: usize, y: usize) -> Vec2 {
         let cell_size = self.cell_size();
         let min = -self.size * 0.5 + cell_size * 0.5;
         Vec2::new(
@@ -135,7 +135,7 @@ impl Field<Vec2> {
         self.values.iter().map(|value| value.length()).sum::<f32>() / self.values.len() as f32
     }
 
-    pub fn sample(&self, point: Vec2) -> Vec2 {
+    pub fn interpolate(&self, point: Vec2) -> Vec2 {
         let point = wrap_point(point, self.size);
         let grid = (point + self.size * 0.5) / self.cell_size() - Vec2::splat(0.5);
         let base = grid.floor();
@@ -201,7 +201,7 @@ mod tests {
 
         for y in 0..field.height() {
             for x in 0..field.width() {
-                let point = field.cell_center(x, y);
+                let point = field.sample(x, y);
                 field.set(x, y, point * 0.5);
             }
         }

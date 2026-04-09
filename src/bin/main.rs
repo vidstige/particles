@@ -49,7 +49,7 @@ fn from_simplex(
 
     for y in 0..height {
         for x in 0..width {
-            let point = field.cell_center(x, y) / noise_scale;
+            let point = field.sample(x, y) / noise_scale;
             field.set(
                 x,
                 y,
@@ -98,7 +98,7 @@ impl SwirlScene {
     fn advance(&mut self, dt: f32) {
         for position in &mut self.positions {
             *position = wrap_point(
-                *position + self.field.sample(*position) * dt,
+                *position + self.field.interpolate(*position) * dt,
                 self.field.size(),
             );
         }
