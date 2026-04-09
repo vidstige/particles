@@ -2,7 +2,7 @@ use std::ops::MulAssign;
 
 use glam::Vec2;
 
-use crate::{eq::solve_poisson_jacobi, resolution::Resolution};
+use crate::{poisson::solve_poisson_jacobi, resolution::Resolution};
 
 pub struct Field<T> {
     resolution: Resolution,
