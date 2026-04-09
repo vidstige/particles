@@ -2,7 +2,7 @@ use std::ops::MulAssign;
 
 use glam::Vec2;
 
-use crate::resolution::Resolution;
+use crate::{eq::solve_poisson_jacobi, resolution::Resolution};
 
 pub struct Field<T> {
     resolution: Resolution,
@@ -28,51 +28,16 @@ pub fn divergence_at(field: &Field<Vec2>, x: usize, y: usize) -> f32 {
     vx / cell_size.x + vy / cell_size.y
 }
 
-fn new_like<T, U>(field: &Field<U>, value: T) -> Field<T>
-where
-    T: Clone,
-{
-    Field::new(field.resolution.clone(), field.size, value)
-}
-
 pub fn divergence(field: &Field<Vec2>) -> Field<f32> {
-    let mut divergence = new_like(field, 0.0);
+    let mut divergence = field.new_like(0.0);
     for y in 0..field.height() {
         for x in 0..field.width() {
             let index = field.index(x as isize, y as isize);
-            divergence.values[index] = divergence_at(field, x, y);
+            divergence.set_index(index, divergence_at(field, x, y));
         }
     }
 
     divergence
-}
-
-pub fn solve_poisson_jacobi(right_hand_side: &Field<f32>, iterations: usize) -> Field<f32> {
-    let mut pressure = new_like(right_hand_side, 0.0);
-    let mut next_pressure = new_like(right_hand_side, 0.0);
-    let cell_size = right_hand_side.cell_size();
-    let inverse_dx2 = 1.0 / cell_size.x.powi(2);
-    let inverse_dy2 = 1.0 / cell_size.y.powi(2);
-    let scale = 0.5 / (inverse_dx2 + inverse_dy2);
-
-    for _ in 0..iterations {
-        for y in 0..right_hand_side.height() {
-            for x in 0..right_hand_side.width() {
-                let index = right_hand_side.index(x as isize, y as isize);
-                let left = pressure.values[right_hand_side.index(x as isize - 1, y as isize)];
-                let right = pressure.values[right_hand_side.index(x as isize + 1, y as isize)];
-                let down = pressure.values[right_hand_side.index(x as isize, y as isize - 1)];
-                let up = pressure.values[right_hand_side.index(x as isize, y as isize + 1)];
-                next_pressure.values[index] = ((left + right) * inverse_dx2
-                    + (down + up) * inverse_dy2
-                    - right_hand_side.values[index])
-                    * scale;
-            }
-        }
-        std::mem::swap(&mut pressure, &mut next_pressure);
-    }
-
-    pressure
 }
 
 pub fn subtract_gradient(field: &mut Field<Vec2>, scalar: &Field<f32>) {
@@ -111,7 +76,11 @@ impl<T: Clone> Field<T> {
 }
 
 impl<T> Field<T> {
-    fn index(&self, x: isize, y: isize) -> usize {
+    pub(crate) fn new_like<U: Clone>(&self, value: U) -> Field<U> {
+        Field::new(self.resolution.clone(), self.size, value)
+    }
+
+    pub(crate) fn index(&self, x: isize, y: isize) -> usize {
         let width = self.resolution.width as isize;
         let height = self.resolution.height as isize;
         let x = x.rem_euclid(width) as usize;
@@ -119,15 +88,15 @@ impl<T> Field<T> {
         y * self.width() + x
     }
 
-    fn width(&self) -> usize {
+    pub(crate) fn width(&self) -> usize {
         self.resolution.width as usize
     }
 
-    fn height(&self) -> usize {
+    pub(crate) fn height(&self) -> usize {
         self.resolution.height as usize
     }
 
-    fn cell_size(&self) -> Vec2 {
+    pub(crate) fn cell_size(&self) -> Vec2 {
         Vec2::new(
             self.size.x / self.resolution.width as f32,
             self.size.y / self.resolution.height as f32,
@@ -145,6 +114,10 @@ impl<T> Field<T> {
 
     pub fn set(&mut self, x: usize, y: usize, value: T) {
         let index = self.index(x as isize, y as isize);
+        self.values[index] = value;
+    }
+
+    pub(crate) fn set_index(&mut self, index: usize, value: T) {
         self.values[index] = value;
     }
 }
@@ -180,6 +153,16 @@ impl MulAssign<f32> for Field<Vec2> {
         for value in &mut self.values {
             *value *= scale;
         }
+    }
+}
+
+impl Field<f32> {
+    pub(crate) fn get(&self, index: usize) -> f32 {
+        self.values[index]
+    }
+
+    pub(crate) fn get_wrapped(&self, x: isize, y: isize) -> f32 {
+        self.values[self.index(x, y)]
     }
 }
 

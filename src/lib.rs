@@ -6,6 +6,7 @@ pub mod cubic_hermite3;
 pub mod depth_field;
 pub mod distribution;
 pub mod env;
+pub mod eq;
 pub mod field;
 pub mod gerstner;
 pub mod glitter;
