@@ -6,7 +6,7 @@ use crate::resolution::Resolution;
 
 pub struct Field<T> {
     resolution: Resolution,
-    // Full world-space size of the field.
+    // Full world-space size of the field. Stored values live on the grid corners.
     size: Vec2,
     values: Vec<T>,
 }
@@ -112,10 +112,7 @@ impl<T> Field<T> {
 
     pub fn sample(&self, x: usize, y: usize) -> Vec2 {
         let cell_size = self.cell_size();
-        Vec2::new(
-            (x as f32 + 0.5) * cell_size.x,
-            (y as f32 + 0.5) * cell_size.y,
-        )
+        Vec2::new(x as f32 * cell_size.x, y as f32 * cell_size.y)
     }
 
     pub fn set(&mut self, x: usize, y: usize, value: T) {
@@ -135,7 +132,7 @@ impl Field<Vec2> {
 
     pub fn interpolate(&self, point: Vec2) -> Vec2 {
         let point = wrap_point(point, self.size);
-        let grid = point / self.cell_size() - Vec2::splat(0.5);
+        let grid = point / self.cell_size();
         let base = grid.floor();
         let fraction = grid - base;
         let x = base.x as isize;
@@ -177,6 +174,15 @@ mod tests {
     use crate::resolution::Resolution;
 
     use super::{divergence_rms, project_divergence_free, Field};
+
+    #[test]
+    fn sample_returns_grid_corner_positions() {
+        let field = Field::new(Resolution::new(4, 2), Vec2::new(8.0, 6.0), Vec2::ZERO);
+
+        assert_eq!(field.sample(0, 0), Vec2::ZERO);
+        assert_eq!(field.sample(1, 0), Vec2::new(2.0, 0.0));
+        assert_eq!(field.sample(0, 1), Vec2::new(0.0, 3.0));
+    }
 
     #[test]
     fn mean_length_scales_with_uniform_field_scaling() {
