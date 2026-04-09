@@ -2,7 +2,16 @@ use std::{env, error::Error, io};
 
 use crate::resolution::Resolution;
 
+pub const DEFAULT_FPS: f32 = 30.0;
 pub const DEFAULT_RESOLUTION: Resolution = Resolution::new(512, 288);
+
+pub fn fps() -> Result<f32, Box<dyn Error>> {
+    match env::var("FPS") {
+        Ok(value) => Ok(value.parse::<f32>()?),
+        Err(env::VarError::NotPresent) => Ok(DEFAULT_FPS),
+        Err(error) => Err(error.into()),
+    }
+}
 
 pub fn resolution() -> Result<Resolution, Box<dyn Error>> {
     let resolution = match env::var("RESOLUTION") {

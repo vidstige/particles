@@ -8,7 +8,7 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     depth_field::{DepthField, Render, Theme},
-    env::{resolution, DEFAULT_RESOLUTION},
+    env::{fps, resolution, DEFAULT_RESOLUTION},
     field::{project_incompressible, Field},
     projection::project_cloud,
     resolution::Resolution,
@@ -17,8 +17,6 @@ use particles::{
 };
 
 const DURATION: f32 = 24.0;
-const FPS: f32 = 30.0;
-const DT: f32 = 1.0 / FPS;
 const FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
 const FIELD_SIZE: Vec2 = Vec2::new(3.2, 3.2);
 const PRESSURE_ITERATIONS: usize = 160;
@@ -130,6 +128,8 @@ fn depth_field(resolution: &Resolution) -> DepthField {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
+    let fps = fps()?;
+    let dt = 1.0 / fps;
     let resolution = resolution()?;
     let mut bitmap = Bitmap::new(resolution);
     let theme = theme();
@@ -137,7 +137,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let view = view();
     let projection = projection(bitmap.resolution());
     let colors = vec![theme.foreground; PARTICLE_COUNT];
-    let frame_count = (DURATION * FPS) as usize;
+    let frame_count = (DURATION * fps) as usize;
     let mut scene = SwirlScene::new();
 
     for _ in 0..frame_count {
@@ -147,7 +147,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         depth_field.render(&mut bitmap, &projected, &colors);
         output.write_all(bitmap.data())?;
         output.flush()?;
-        scene.advance(DT);
+        scene.advance(dt);
     }
 
     Ok(())

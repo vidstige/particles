@@ -9,7 +9,7 @@ use particles::{
     color::Color,
     color::Rgba8,
     depth_field::{DepthField, Render, Theme},
-    env::{resolution, DEFAULT_RESOLUTION},
+    env::{fps, resolution, DEFAULT_RESOLUTION},
     projection::project_cloud,
     resolution::Resolution,
     timeline::Timeline,
@@ -21,12 +21,12 @@ fn projection(resolution: &Resolution) -> Mat4 {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut output = io::stdout().lock();
+    let fps = fps()?;
     let resolution = resolution()?;
     let theme = Theme {
         background: Rgba8::from_rgb(14, 14, 18),
         foreground: Color::from_rgb8(112, 48, 132),
     };
-    let fps = 30.0;
     let duration = 44.0;
     let frame_count = (duration * fps) as usize;
     let timeline = Timeline::new();
