@@ -1,3 +1,5 @@
+use std::ops::MulAssign;
+
 use glam::{Vec2, Vec4};
 
 use crate::simplex::SimplexNoise;
@@ -87,7 +89,7 @@ pub fn from_simplex(
     }
 
     project_divergence_free(&mut field, projection_iterations);
-    field.scale_mean_speed(mean_speed);
+    field *= mean_speed / field.mean_length();
     field
 }
 
@@ -128,14 +130,8 @@ impl Field<Vec2> {
         self.values[self.index(x, y)]
     }
 
-    fn scale_mean_speed(&mut self, target: f32) {
-        let mean_speed =
-            self.values.iter().map(|value| value.length()).sum::<f32>() / self.values.len() as f32;
-        let scale = target / mean_speed.max(f32::MIN_POSITIVE);
-
-        for value in &mut self.values {
-            *value *= scale;
-        }
+    pub fn mean_length(&self) -> f32 {
+        self.values.iter().map(|value| value.length()).sum::<f32>() / self.values.len() as f32
     }
 
     pub fn sample(&self, point: Vec2) -> Vec2 {
@@ -152,6 +148,14 @@ impl Field<Vec2> {
         let low = v00.lerp(v10, fraction.x);
         let high = v01.lerp(v11, fraction.x);
         low.lerp(high, fraction.y)
+    }
+}
+
+impl MulAssign<f32> for Field<Vec2> {
+    fn mul_assign(&mut self, scale: f32) {
+        for value in &mut self.values {
+            *value *= scale;
+        }
     }
 }
 
@@ -172,6 +176,17 @@ mod tests {
     use glam::Vec2;
 
     use super::{divergence_rms, project_divergence_free, Field};
+
+    #[test]
+    fn mean_length_scales_with_uniform_field_scaling() {
+        let mut field = Field::new(4, 1.0, Vec2::new(3.0, 4.0));
+
+        assert_eq!(field.mean_length(), 5.0);
+
+        field *= 0.5;
+
+        assert_eq!(field.mean_length(), 2.5);
+    }
 
     #[test]
     fn projection_reduces_field_divergence() {
