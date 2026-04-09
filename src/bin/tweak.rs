@@ -3,9 +3,24 @@ use glam::{Mat4, Vec3};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
+    depth_field::{DepthField, Render, Theme},
+    distribution::{collect, Uniform3},
     env::DEFAULT_RESOLUTION,
-    glitter_scene::{GlitterScene, GlitterSceneSettings, DEFAULT_DURATION},
+    glitter::{
+        glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
+    },
+    projection::project_cloud,
+    resolution::Resolution,
+    rng::Rng,
+    simplex::SimplexNoise,
 };
+
+const DURATION: f32 = 24.0;
+const PARTICLE_COUNT: usize = 8 * 1024;
+const SIMPLEX_SCALE: f32 = 0.45;
+const SIMPLEX_SPEED: f32 = 0.125;
+const GLITTER_TUMBLE_SPEED: f32 = 8.0;
+const GLITTER_PRECESSION_SPEED: f32 = 1.5;
 
 fn format_time(seconds: f32) -> String {
     format!("{seconds:05.2}s")
@@ -15,6 +30,113 @@ fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
     let size = egui::Vec2::new(bitmap.width() as f32, bitmap.height() as f32);
     let scale = (available.x / size.x).min(available.y / size.y);
     size * scale
+}
+
+fn simplex_field() -> [SimplexNoise; 3] {
+    [
+        SimplexNoise::new(0x1f2e_3d4c, 1.4, 1.0),
+        SimplexNoise::new(0x2a39_4857, 1.4, 1.0),
+        SimplexNoise::new(0x6574_8392, 1.4, 1.0),
+    ]
+}
+
+fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, w: f32) -> Vec3 {
+    Vec3::new(
+        field[0].sample(point.extend(w)),
+        field[1].sample(point.extend(w)),
+        field[2].sample(point.extend(w)),
+    )
+}
+
+fn projection(resolution: &Resolution) -> Mat4 {
+    Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
+}
+
+#[derive(Clone, Copy, Debug)]
+struct GlitterSceneSettings {
+    theme: Theme,
+    depth_field: DepthField,
+    glitter: Glitter,
+    simplex_scale: f32,
+    simplex_speed: f32,
+}
+
+impl GlitterSceneSettings {
+    fn for_resolution(resolution: &Resolution) -> Self {
+        Self {
+            theme: Theme {
+                background: Rgba8::from_rgb(14, 14, 18),
+                foreground: Color::from_rgb8(112, 48, 132),
+            },
+            depth_field: DepthField {
+                focus_depth: 2.0,
+                blur: 2.0,
+                particle_radius: resolution.area_scale(&DEFAULT_RESOLUTION),
+            },
+            glitter: Glitter {
+                falloff_power: 16.0,
+                tumble_speed: GLITTER_TUMBLE_SPEED,
+                tumble_axis: Vec3::new(0.4, 0.8, 0.2).normalize(),
+                precession_axis: Vec3::new(-0.3, 0.1, 0.9).normalize(),
+                precession_speed: GLITTER_PRECESSION_SPEED,
+            },
+            simplex_scale: SIMPLEX_SCALE,
+            simplex_speed: SIMPLEX_SPEED,
+        }
+    }
+
+    fn glitter_speed(&self) -> f32 {
+        self.glitter.tumble_speed
+    }
+
+    fn set_glitter_speed(&mut self, speed: f32) {
+        self.glitter.tumble_speed = speed;
+        self.glitter.precession_speed = speed * GLITTER_PRECESSION_SPEED / GLITTER_TUMBLE_SPEED;
+    }
+}
+
+struct GlitterScene {
+    rest_positions: Vec<Vec3>,
+    normals: Vec<Vec3>,
+    field: [SimplexNoise; 3],
+}
+
+impl GlitterScene {
+    fn new() -> Self {
+        let mut rng = Rng::new(0x1234_5678);
+        let rest_positions = collect(&mut Uniform3::new(), PARTICLE_COUNT, &mut rng);
+        let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
+
+        Self {
+            rest_positions,
+            normals,
+            field: simplex_field(),
+        }
+    }
+
+    fn render(&self, bitmap: &mut Bitmap, time: f32, settings: GlitterSceneSettings, view: Mat4) {
+        bitmap.fill(settings.theme.background);
+
+        let w = time * settings.simplex_speed;
+        let positions = self
+            .rest_positions
+            .iter()
+            .map(|rest_position| {
+                *rest_position
+                    + simplex_offset(&self.field, *rest_position, w) * settings.simplex_scale
+            })
+            .collect::<Vec<_>>();
+        let projected = project_cloud(bitmap, &positions, projection(bitmap.resolution()), view);
+        let rotated_normals =
+            rotate_normals(&self.normals, tumble_rotation(time, settings.glitter));
+        let colors = glitter_colors(
+            settings.theme.foreground,
+            &rotated_normals,
+            view_direction(view),
+            settings.glitter,
+        );
+        settings.depth_field.render(bitmap, &projected, &colors);
+    }
 }
 
 struct Camera {
@@ -84,7 +206,7 @@ impl eframe::App for TweakApp {
         let now = ctx.input(|input| input.time);
         if let Some(last_ui_time) = self.last_ui_time {
             if self.playing {
-                self.time = (self.time + (now - last_ui_time) as f32).rem_euclid(DEFAULT_DURATION);
+                self.time = (self.time + (now - last_ui_time) as f32).rem_euclid(DURATION);
                 ctx.request_repaint();
             }
         }
@@ -101,14 +223,14 @@ impl eframe::App for TweakApp {
                     }
                 }
                 ui.add(
-                    egui::Slider::new(&mut self.time, 0.0..=DEFAULT_DURATION)
+                    egui::Slider::new(&mut self.time, 0.0..=DURATION)
                         .show_value(false)
                         .clamping(egui::SliderClamping::Always),
                 );
                 ui.label(format!(
                     "{} / {}",
                     format_time(self.time),
-                    format_time(DEFAULT_DURATION)
+                    format_time(DURATION)
                 ));
             });
         });
