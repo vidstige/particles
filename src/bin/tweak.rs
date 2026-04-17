@@ -280,7 +280,7 @@ impl Camera {
 
     fn orbit(&mut self, delta: egui::Vec2) {
         self.yaw -= delta.x * 0.01;
-        self.pitch = (self.pitch - delta.y * 0.01).clamp(-1.4, 1.4);
+        self.pitch = (self.pitch + delta.y * 0.01).clamp(-1.4, 1.4);
     }
 
     fn pan(&mut self, delta: egui::Vec2, viewport: egui::Rect) {
