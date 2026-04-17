@@ -7,6 +7,7 @@ pub mod depth_field;
 pub mod distribution;
 pub mod env;
 pub mod field;
+pub mod fluid;
 pub mod gerstner;
 pub mod glitter;
 pub mod point_cloud;

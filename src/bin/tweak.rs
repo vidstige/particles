@@ -6,7 +6,8 @@ use particles::{
     depth_field::{DepthField, Render, Theme},
     distribution::{collect, Uniform3},
     env::DEFAULT_RESOLUTION,
-    field::{advect, project_incompressible, Field},
+    field::Field,
+    fluid::{advect, project_incompressible},
     gerstner::{displaced_position, surface_grid, GerstnerWave},
     glitter::{
         glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
