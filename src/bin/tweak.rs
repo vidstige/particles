@@ -22,10 +22,10 @@ const DURATION: f32 = 24.0;
 const PARTICLE_COUNT: usize = 8 * 1024;
 const SIMPLEX_SCALE: f32 = 0.45;
 const SIMPLEX_SPEED: f32 = 0.125;
-const GLITTER_TUMBLE_SPEED: f32 = 8.0;
+const GLITTER_TUMBLE_SPEED: f32 = 2.0;
 const GLITTER_PRECESSION_SPEED: f32 = 1.5;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
-const FLOW_FIELD_SIZE: Vec2 = Vec2::new(4.0, 4.0);
+const FLOW_FIELD_SIZE: Vec2 = Vec2::new(8.0, 8.0);
 const FLOW_MEAN_SPEED: f32 = 0.35;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -186,9 +186,9 @@ impl GlitterScene {
         if mode == FieldMode::Incompressible {
             self.flow_field = advect(&self.flow_field, dt);
             project_incompressible(&mut self.flow_field, 40);
-            let mean = self.flow_field.mean_length();
-            assert!(mean > 0.0);
-            self.flow_field *= FLOW_MEAN_SPEED / mean;
+            //let mean = self.flow_field.mean_length();
+            //assert!(mean > 0.0);
+            //self.flow_field *= FLOW_MEAN_SPEED / mean;
             for position in &mut self.flow_positions {
                 let next = *position + self.flow_field.interpolate(*position) * dt;
                 *position = Vec2::new(
