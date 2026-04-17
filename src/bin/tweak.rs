@@ -129,7 +129,7 @@ impl GlitterSceneSettings {
             },
             simplex_scale: SIMPLEX_SCALE,
             simplex_speed: SIMPLEX_SPEED,
-            gerstner_speed: 1.0,
+            gerstner_speed: 0.25,
         }
     }
 
@@ -358,7 +358,7 @@ impl eframe::App for TweakApp {
                 ui.radio_value(&mut self.field_mode, FieldMode::Gerstner, "Gerstner waves");
                 if self.field_mode == FieldMode::Gerstner {
                     ui.add(
-                        egui::Slider::new(&mut self.settings.gerstner_speed, 0.0..=5.0)
+                        egui::Slider::new(&mut self.settings.gerstner_speed, 0.05..=2.0)
                             .text("Speed"),
                     );
                 }
