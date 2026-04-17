@@ -24,7 +24,7 @@ const SIMPLEX_SPEED: f32 = 0.125;
 const GLITTER_TUMBLE_SPEED: f32 = 8.0;
 const GLITTER_PRECESSION_SPEED: f32 = 1.5;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
-const FLOW_FIELD_SIZE: Vec2 = Vec2::new(3.2, 3.2);
+const FLOW_FIELD_SIZE: Vec2 = Vec2::new(4.0, 4.0);
 const FLOW_MEAN_SPEED: f32 = 0.35;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -499,7 +499,7 @@ fn main() -> eframe::Result {
             Ok(Box::new(TweakApp {
                 scene: GlitterScene::new(),
                 settings: GlitterSceneSettings::for_resolution(&resolution),
-                field_mode: FieldMode::Simplex,
+                field_mode: FieldMode::Incompressible,
                 bitmap: Bitmap::new(resolution),
                 texture: None,
                 camera: Camera::new(Vec3::new(2.0_f32.sqrt(), 2.0, 0.0), Vec3::ZERO),
