@@ -6,7 +6,7 @@ use particles::{
     depth_field::{DepthField, Render, Theme},
     distribution::{collect, Uniform3},
     env::DEFAULT_RESOLUTION,
-    field::{project_incompressible, Field},
+    field::{advect, project_incompressible, Field},
     gerstner::{displaced_position, surface_grid, GerstnerWave},
     glitter::{
         glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
@@ -183,6 +183,11 @@ impl GlitterScene {
 
     fn advance(&mut self, dt: f32, mode: FieldMode) {
         if mode == FieldMode::Incompressible {
+            self.flow_field = advect(&self.flow_field, dt);
+            project_incompressible(&mut self.flow_field, 40);
+            let mean = self.flow_field.mean_length();
+            assert!(mean > 0.0);
+            self.flow_field *= FLOW_MEAN_SPEED / mean;
             for position in &mut self.flow_positions {
                 let next = *position + self.flow_field.interpolate(*position) * dt;
                 *position = Vec2::new(

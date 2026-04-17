@@ -73,6 +73,19 @@ pub fn project_incompressible(field: &mut Field<Vec2>, iterations: usize) {
     subtract(field, &gradient(&pressure));
 }
 
+pub fn advect(field: &Field<Vec2>, dt: f32) -> Field<Vec2> {
+    let mut result = field.new_like(Vec2::ZERO);
+    for y in 0..field.height() {
+        for x in 0..field.width() {
+            let pos = field.sample(x, y);
+            let prev_pos = pos - field.interpolate(pos) * dt;
+            let index = field.index(x as isize, y as isize);
+            result.set_index(index, field.interpolate(prev_pos));
+        }
+    }
+    result
+}
+
 impl<T: Clone> Field<T> {
     pub fn new(resolution: Resolution, size: Vec2, value: T) -> Self {
         assert!(resolution.area() > 0);
