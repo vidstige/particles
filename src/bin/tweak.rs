@@ -1,11 +1,13 @@
 use eframe::egui::{self, TextureHandle, TextureOptions};
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     depth_field::{DepthField, Render, Theme},
     distribution::{collect, Uniform3},
     env::DEFAULT_RESOLUTION,
+    field::{project_incompressible, Field},
+    gerstner::{displaced_position, surface_grid, GerstnerWave},
     glitter::{
         glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
     },
@@ -21,6 +23,16 @@ const SIMPLEX_SCALE: f32 = 0.45;
 const SIMPLEX_SPEED: f32 = 0.125;
 const GLITTER_TUMBLE_SPEED: f32 = 8.0;
 const GLITTER_PRECESSION_SPEED: f32 = 1.5;
+const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
+const FLOW_FIELD_SIZE: Vec2 = Vec2::new(3.2, 3.2);
+const FLOW_MEAN_SPEED: f32 = 0.35;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum FieldMode {
+    Simplex,
+    Incompressible,
+    Gerstner,
+}
 
 fn format_time(seconds: f32) -> String {
     format!("{seconds:05.2}s")
@@ -48,6 +60,40 @@ fn simplex_offset(field: &[SimplexNoise; 3], point: Vec3, w: f32) -> Vec3 {
     )
 }
 
+fn water_waves() -> [GerstnerWave; 5] {
+    [
+        GerstnerWave::new(Vec2::new(1.0, 0.1), 0.11, 2.8, 0.55, 0.75, 0.0),
+        GerstnerWave::new(Vec2::new(0.2, 1.0), 0.08, 1.9, 0.8, 0.7, 0.8),
+        GerstnerWave::new(Vec2::new(-0.9, 0.4), 0.05, 1.1, 1.1, 0.55, 1.7),
+        GerstnerWave::new(Vec2::new(0.7, -0.6), 0.04, 0.75, 1.4, 0.45, 2.2),
+        GerstnerWave::new(Vec2::new(-0.3, -1.0), 0.03, 0.5, 1.8, 0.35, 0.5),
+    ]
+}
+
+fn flow_field_from_simplex() -> Field<Vec2> {
+    let width = FLOW_FIELD_RESOLUTION.width as usize;
+    let height = FLOW_FIELD_RESOLUTION.height as usize;
+    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
+    let x_noise = SimplexNoise::new(0x1f2e_3d4c, 1.3, 1.0);
+    let y_noise = SimplexNoise::new(0x5a69_7887, 1.3, 1.0);
+    for y in 0..height {
+        for x in 0..width {
+            let point = field.sample(x, y) / FLOW_FIELD_SIZE;
+            field.set(
+                x,
+                y,
+                Vec2::new(
+                    x_noise.sample(Vec4::new(point.x, point.y, 0.17, 0.0)),
+                    y_noise.sample(Vec4::new(point.x, point.y, 3.41, 0.0)),
+                ),
+            );
+        }
+    }
+    project_incompressible(&mut field, 160);
+    field *= FLOW_MEAN_SPEED / field.mean_length();
+    field
+}
+
 fn projection(resolution: &Resolution) -> Mat4 {
     Mat4::perspective_rh_gl(45.0_f32.to_radians(), resolution.aspect_ratio(), 0.1, 12.0)
 }
@@ -59,6 +105,7 @@ struct GlitterSceneSettings {
     glitter: Glitter,
     simplex_scale: f32,
     simplex_speed: f32,
+    gerstner_speed: f32,
 }
 
 impl GlitterSceneSettings {
@@ -82,6 +129,7 @@ impl GlitterSceneSettings {
             },
             simplex_scale: SIMPLEX_SCALE,
             simplex_speed: SIMPLEX_SPEED,
+            gerstner_speed: 1.0,
         }
     }
 
@@ -99,6 +147,10 @@ struct GlitterScene {
     rest_positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     field: [SimplexNoise; 3],
+    flow_field: Field<Vec2>,
+    flow_positions: Vec<Vec2>,
+    gerstner_rest_positions: Vec<Vec3>,
+    gerstner_waves: [GerstnerWave; 5],
 }
 
 impl GlitterScene {
@@ -106,26 +158,80 @@ impl GlitterScene {
         let mut rng = Rng::new(0x1234_5678);
         let rest_positions = collect(&mut Uniform3::new(), PARTICLE_COUNT, &mut rng);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
+        let flow_field = flow_field_from_simplex();
+        let flow_positions = (0..PARTICLE_COUNT)
+            .map(|_| {
+                Vec2::new(
+                    rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
+                    rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y),
+                )
+            })
+            .collect();
+        // 128 * 64 == PARTICLE_COUNT, so normals align without padding
+        let gerstner_rest_positions = surface_grid(128, 64, Vec2::new(8.0, 4.0));
 
         Self {
             rest_positions,
             normals,
             field: simplex_field(),
+            flow_field,
+            flow_positions,
+            gerstner_rest_positions,
+            gerstner_waves: water_waves(),
         }
     }
 
-    fn render(&self, bitmap: &mut Bitmap, time: f32, settings: GlitterSceneSettings, view: Mat4) {
+    fn advance(&mut self, dt: f32, mode: FieldMode) {
+        if mode == FieldMode::Incompressible {
+            for position in &mut self.flow_positions {
+                let next = *position + self.flow_field.interpolate(*position) * dt;
+                *position = Vec2::new(
+                    next.x.rem_euclid(FLOW_FIELD_SIZE.x),
+                    next.y.rem_euclid(FLOW_FIELD_SIZE.y),
+                );
+            }
+        }
+    }
+
+    fn render(
+        &self,
+        bitmap: &mut Bitmap,
+        time: f32,
+        settings: GlitterSceneSettings,
+        view: Mat4,
+        mode: FieldMode,
+    ) {
         bitmap.fill(settings.theme.background);
 
-        let w = time * settings.simplex_speed;
-        let positions = self
-            .rest_positions
-            .iter()
-            .map(|rest_position| {
-                *rest_position
-                    + simplex_offset(&self.field, *rest_position, w) * settings.simplex_scale
-            })
-            .collect::<Vec<_>>();
+        let positions: Vec<Vec3> = match mode {
+            FieldMode::Simplex => {
+                let w = time * settings.simplex_speed;
+                self.rest_positions
+                    .iter()
+                    .map(|rest| {
+                        *rest + simplex_offset(&self.field, *rest, w) * settings.simplex_scale
+                    })
+                    .collect()
+            }
+            FieldMode::Incompressible => {
+                let offset = FLOW_FIELD_SIZE * 0.5;
+                self.flow_positions
+                    .iter()
+                    .map(|p| {
+                        let p = *p - offset;
+                        Vec3::new(p.x, 0.0, p.y)
+                    })
+                    .collect()
+            }
+            FieldMode::Gerstner => self
+                .gerstner_rest_positions
+                .iter()
+                .map(|rest| {
+                    displaced_position(*rest, &self.gerstner_waves, time * settings.gerstner_speed)
+                })
+                .collect(),
+        };
+
         let projected = project_cloud(bitmap, &positions, projection(bitmap.resolution()), view);
         let rotated_normals =
             rotate_normals(&self.normals, tumble_rotation(time, settings.glitter));
@@ -193,6 +299,7 @@ impl Camera {
 struct TweakApp {
     scene: GlitterScene,
     settings: GlitterSceneSettings,
+    field_mode: FieldMode,
     bitmap: Bitmap,
     texture: Option<TextureHandle>,
     camera: Camera,
@@ -206,7 +313,9 @@ impl eframe::App for TweakApp {
         let now = ctx.input(|input| input.time);
         if let Some(last_ui_time) = self.last_ui_time {
             if self.playing {
-                self.time = (self.time + (now - last_ui_time) as f32).rem_euclid(DURATION);
+                let dt = (now - last_ui_time) as f32;
+                self.time = (self.time + dt).rem_euclid(DURATION);
+                self.scene.advance(dt, self.field_mode);
                 ctx.request_repaint();
             }
         }
@@ -239,6 +348,22 @@ impl eframe::App for TweakApp {
             .resizable(false)
             .default_width(220.0)
             .show(ctx, |ui| {
+                ui.heading("Fields");
+                ui.radio_value(&mut self.field_mode, FieldMode::Simplex, "Simplex noise");
+                ui.radio_value(
+                    &mut self.field_mode,
+                    FieldMode::Incompressible,
+                    "Incompressible 2D",
+                );
+                ui.radio_value(&mut self.field_mode, FieldMode::Gerstner, "Gerstner waves");
+                if self.field_mode == FieldMode::Gerstner {
+                    ui.add(
+                        egui::Slider::new(&mut self.settings.gerstner_speed, 0.0..=5.0)
+                            .text("Speed"),
+                    );
+                }
+
+                ui.separator();
                 ui.heading("Render");
                 ui.add(
                     egui::Slider::new(&mut self.settings.depth_field.blur, 0.0..=12.0).text("Blur"),
@@ -299,6 +424,7 @@ impl eframe::App for TweakApp {
             self.time,
             self.settings,
             self.camera.view(),
+            self.field_mode,
         );
 
         let image = egui::ColorImage::from_rgba_unmultiplied(
@@ -373,6 +499,7 @@ fn main() -> eframe::Result {
             Ok(Box::new(TweakApp {
                 scene: GlitterScene::new(),
                 settings: GlitterSceneSettings::for_resolution(&resolution),
+                field_mode: FieldMode::Simplex,
                 bitmap: Bitmap::new(resolution),
                 texture: None,
                 camera: Camera::new(Vec3::new(2.0_f32.sqrt(), 2.0, 0.0), Vec3::ZERO),
