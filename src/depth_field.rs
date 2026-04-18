@@ -1,6 +1,6 @@
 use glam::Vec3;
 
-use crate::{bitmap::Bitmap, circle_rasterizer::draw_disk, color::Color, color::Rgba8};
+use crate::{bitmap::Bitmap, circle_rasterizer::draw_disk, color::Color, color::Rgba8, render::Render};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Theme {
@@ -13,10 +13,6 @@ pub struct DepthField {
     pub focus_depth: f32,
     pub blur: f32,
     pub particle_radius: f32,
-}
-
-pub trait Render {
-    fn render(&self, target: &mut Bitmap, positions: &[Option<Vec3>], colors: &[Color]);
 }
 
 fn circle_area(radius: f32) -> f32 {

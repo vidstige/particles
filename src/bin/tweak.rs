@@ -3,7 +3,8 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
-    depth_field::{DepthField, Render, Theme},
+    depth_field::{DepthField, Theme},
+    render::Render,
     distribution::{collect, Uniform3},
     env::DEFAULT_RESOLUTION,
     field::Field,

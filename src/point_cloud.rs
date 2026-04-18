@@ -6,7 +6,8 @@ use crate::{
     assignment::auction_assignment,
     bitmap::Bitmap,
     cubic_hermite3::CubicHermite3,
-    depth_field::{DepthField, Render, Theme},
+    depth_field::{DepthField, Theme},
+    render::Render,
     distribution::{
         collect, Add, Cube, Distribution3, Gaussian, Gyroid, Icosahedron, Lissajous, Sphere,
         Tetrahedron, TorusSurface, Uniform3,
