@@ -4,6 +4,7 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     depth_field::{DepthField, Theme},
+    glow::Glow,
     render::Render,
     distribution::{collect, Uniform3},
     env::DEFAULT_RESOLUTION,
@@ -105,6 +106,7 @@ struct Settings {
     theme: Theme,
     depth_field: DepthField,
     glitter: Glitter,
+    glow: Glow,
     simplex_scale: f32,
     simplex_speed: f32,
     gerstner_speed: f32,
@@ -128,6 +130,11 @@ impl Settings {
                 tumble_axis: Vec3::new(0.4, 0.8, 0.2).normalize(),
                 precession_axis: Vec3::new(-0.3, 0.1, 0.9).normalize(),
                 precession_speed: GLITTER_PRECESSION_SPEED,
+            },
+            glow: Glow {
+                background: Color::from_rgb8(14, 14, 18),
+                softener: 0.5,
+                radius: 8.0,
             },
             simplex_scale: SIMPLEX_SCALE,
             simplex_speed: SIMPLEX_SPEED,
@@ -248,6 +255,7 @@ impl Scene {
             view_direction(view),
             settings.glitter,
         );
+        settings.glow.render(bitmap, &projected, &colors);
         settings.depth_field.render(bitmap, &projected, &colors);
     }
 }
@@ -422,6 +430,32 @@ impl eframe::App for TweakApp {
                     if ui.color_edit_button_srgb(&mut background).changed() {
                         self.settings.theme.background =
                             Rgba8::from_rgb(background[0], background[1], background[2]);
+                    }
+                });
+
+                ui.separator();
+                ui.heading("Glow");
+                ui.add(
+                    egui::Slider::new(&mut self.settings.glow.softener, 0.0..=1.0)
+                        .text("Softener"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut self.settings.glow.radius, 1.0..=64.0)
+                        .text("Radius"),
+                );
+                let mut glow_background = [
+                    (self.settings.glow.background.red * 255.0).round() as u8,
+                    (self.settings.glow.background.green * 255.0).round() as u8,
+                    (self.settings.glow.background.blue * 255.0).round() as u8,
+                ];
+                ui.horizontal(|ui| {
+                    ui.label("Glow bg");
+                    if ui.color_edit_button_srgb(&mut glow_background).changed() {
+                        self.settings.glow.background = Color::from_rgb8(
+                            glow_background[0],
+                            glow_background[1],
+                            glow_background[2],
+                        );
                     }
                 });
             });

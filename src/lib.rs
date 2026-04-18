@@ -9,6 +9,7 @@ pub mod env;
 pub mod field;
 pub mod fluid;
 pub mod gerstner;
+pub mod glow;
 pub mod glitter;
 pub mod point_cloud;
 pub mod poisson;
