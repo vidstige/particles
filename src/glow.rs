@@ -4,7 +4,6 @@ use crate::{bitmap::Bitmap, color::Color, render::Render};
 
 #[derive(Clone, Copy, Debug)]
 pub struct Glow {
-    pub background: Color,
     pub softener: f32,
     pub radius: f32,
 }
@@ -12,14 +11,6 @@ pub struct Glow {
 fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
     let t = ((x - edge0) / (edge1 - edge0)).clamp(0.0, 1.0);
     t * t * (3.0 - 2.0 * t)
-}
-
-fn lerp_color(a: Color, b: Color, t: f32) -> Color {
-    Color::new(
-        a.red + (b.red - a.red) * t,
-        a.green + (b.green - a.green) * t,
-        a.blue + (b.blue - a.blue) * t,
-    )
 }
 
 fn draw_glow(bitmap: &mut Bitmap, center: Vec2, color: Color, glow: Glow) {
@@ -31,12 +22,6 @@ fn draw_glow(bitmap: &mut Bitmap, center: Vec2, color: Color, glow: Glow) {
     let min_y = (center.y - radius).floor().max(0.0) as i32;
     let max_y = (center.y + radius).ceil().min((height - 1) as f32) as i32;
 
-    let softened = Color::new(
-        color.red * glow.softener,
-        color.green * glow.softener,
-        color.blue * glow.softener,
-    );
-
     let data = bitmap.data_mut();
     for y in min_y..=max_y {
         let dy = y as f32 + 0.5 - center.y;
@@ -46,16 +31,15 @@ fn draw_glow(bitmap: &mut Bitmap, center: Vec2, color: Color, glow: Glow) {
             if distance >= radius {
                 continue;
             }
-            let t = smoothstep(0.0, radius, distance);
-            let glow_color = lerp_color(softened, glow.background, t);
+            let intensity = (1.0 - smoothstep(0.0, radius, distance)) * glow.softener;
             let index = (y as usize * width as usize + x as usize) * 4;
-            let r = (glow_color.red.clamp(0.0, 1.0) * 255.0) as u8;
-            let g = (glow_color.green.clamp(0.0, 1.0) * 255.0) as u8;
-            let b = (glow_color.blue.clamp(0.0, 1.0) * 255.0) as u8;
-            data[index] = data[index].max(r);
-            data[index + 1] = data[index + 1].max(g);
-            data[index + 2] = data[index + 2].max(b);
-            data[index + 3] = 255;
+            let r = (color.red.clamp(0.0, 1.0) * intensity * 255.0) as u8;
+            let g = (color.green.clamp(0.0, 1.0) * intensity * 255.0) as u8;
+            let b = (color.blue.clamp(0.0, 1.0) * intensity * 255.0) as u8;
+            data[index] = data[index].saturating_add(r);
+            data[index + 1] = data[index + 1].saturating_add(g);
+            data[index + 2] = data[index + 2].saturating_add(b);
+            data[index + 3] = data[index + 3].saturating_add((intensity.clamp(0.0, 1.0) * 255.0) as u8);
         }
     }
 }

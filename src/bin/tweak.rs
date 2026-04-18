@@ -132,7 +132,6 @@ impl Settings {
                 precession_speed: GLITTER_PRECESSION_SPEED,
             },
             glow: Glow {
-                background: Color::from_rgb8(14, 14, 18),
                 softener: 0.5,
                 radius: 8.0,
             },
@@ -443,21 +442,6 @@ impl eframe::App for TweakApp {
                     egui::Slider::new(&mut self.settings.glow.radius, 1.0..=64.0)
                         .text("Radius"),
                 );
-                let mut glow_background = [
-                    (self.settings.glow.background.red * 255.0).round() as u8,
-                    (self.settings.glow.background.green * 255.0).round() as u8,
-                    (self.settings.glow.background.blue * 255.0).round() as u8,
-                ];
-                ui.horizontal(|ui| {
-                    ui.label("Glow bg");
-                    if ui.color_edit_button_srgb(&mut glow_background).changed() {
-                        self.settings.glow.background = Color::from_rgb8(
-                            glow_background[0],
-                            glow_background[1],
-                            glow_background[2],
-                        );
-                    }
-                });
             });
 
         self.scene.render(
