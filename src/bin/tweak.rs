@@ -100,7 +100,7 @@ fn projection(resolution: &Resolution) -> Mat4 {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct GlitterSceneSettings {
+struct Settings {
     theme: Theme,
     depth_field: DepthField,
     glitter: Glitter,
@@ -109,7 +109,7 @@ struct GlitterSceneSettings {
     gerstner_speed: f32,
 }
 
-impl GlitterSceneSettings {
+impl Settings {
     fn for_resolution(resolution: &Resolution) -> Self {
         Self {
             theme: Theme {
@@ -144,7 +144,7 @@ impl GlitterSceneSettings {
     }
 }
 
-struct GlitterScene {
+struct Scene {
     rest_positions: Vec<Vec3>,
     normals: Vec<Vec3>,
     field: [SimplexNoise; 3],
@@ -154,7 +154,7 @@ struct GlitterScene {
     gerstner_waves: [GerstnerWave; 5],
 }
 
-impl GlitterScene {
+impl Scene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
         let rest_positions = collect(&mut Uniform3::new(), PARTICLE_COUNT, &mut rng);
@@ -203,7 +203,7 @@ impl GlitterScene {
         &self,
         bitmap: &mut Bitmap,
         time: f32,
-        settings: GlitterSceneSettings,
+        settings: Settings,
         view: Mat4,
         mode: FieldMode,
     ) {
@@ -303,8 +303,8 @@ impl Camera {
 }
 
 struct TweakApp {
-    scene: GlitterScene,
-    settings: GlitterSceneSettings,
+    scene: Scene,
+    settings: Settings,
     field_mode: FieldMode,
     bitmap: Bitmap,
     texture: Option<TextureHandle>,
@@ -503,8 +503,8 @@ fn main() -> eframe::Result {
         options,
         Box::new(|_cc| {
             Ok(Box::new(TweakApp {
-                scene: GlitterScene::new(),
-                settings: GlitterSceneSettings::for_resolution(&resolution),
+                scene: Scene::new(),
+                settings: Settings::for_resolution(&resolution),
                 field_mode: FieldMode::Incompressible,
                 bitmap: Bitmap::new(resolution),
                 texture: None,
