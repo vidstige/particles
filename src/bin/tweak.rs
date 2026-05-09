@@ -4,6 +4,7 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     depth_field::{DepthField, Theme},
+    downscaled::Downscaled,
     glow::Glow,
     render::Render,
     distribution::{collect, Uniform3},
@@ -133,7 +134,7 @@ impl Settings {
             },
             glow: Glow {
                 softener: 0.5,
-                radius: 8.0,
+                radius: 2.0,
             },
             simplex_scale: SIMPLEX_SCALE,
             simplex_speed: SIMPLEX_SPEED,
@@ -254,7 +255,11 @@ impl Scene {
             view_direction(view),
             settings.glitter,
         );
-        settings.glow.render(bitmap, &projected, &colors);
+        let bloom = Downscaled {
+            inner: settings.glow,
+            scale: 4,
+        };
+        bloom.render(bitmap, &projected, &colors);
         settings.depth_field.render(bitmap, &projected, &colors);
     }
 }
@@ -439,7 +444,7 @@ impl eframe::App for TweakApp {
                         .text("Softener"),
                 );
                 ui.add(
-                    egui::Slider::new(&mut self.settings.glow.radius, 1.0..=64.0)
+                    egui::Slider::new(&mut self.settings.glow.radius, 0.25..=16.0)
                         .text("Radius"),
                 );
             });

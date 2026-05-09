@@ -5,6 +5,7 @@ pub mod color;
 pub mod cubic_hermite3;
 pub mod depth_field;
 pub mod distribution;
+pub mod downscaled;
 pub mod env;
 pub mod field;
 pub mod fluid;
