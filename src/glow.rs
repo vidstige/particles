@@ -50,6 +50,12 @@ impl Render for Glow {
             let Some(particle) = particle else {
                 continue;
             };
+            let depth_scale = 1.0 / (particle.z * particle.z);
+            let color = Color::new(
+                color.red * depth_scale,
+                color.green * depth_scale,
+                color.blue * depth_scale,
+            );
             draw_glow(target, particle.truncate(), color, *self);
         }
     }
