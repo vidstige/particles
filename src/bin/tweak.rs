@@ -255,11 +255,12 @@ impl Scene {
             view_direction(view),
             settings.glitter,
         );
+        let base_colors = vec![settings.theme.foreground; projected.len()];
         let bloom = Downscaled {
             inner: settings.glow,
             scale: 4,
         };
-        bloom.render(bitmap, &projected, &colors);
+        bloom.render(bitmap, &projected, &base_colors);
         settings.depth_field.render(bitmap, &projected, &colors);
     }
 }
