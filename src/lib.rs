@@ -19,4 +19,5 @@ pub mod render;
 pub mod resolution;
 pub mod rng;
 pub mod simplex;
+pub mod themes;
 pub mod timeline;

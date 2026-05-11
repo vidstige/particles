@@ -19,6 +19,7 @@ use particles::{
     resolution::Resolution,
     rng::Rng,
     simplex::SimplexNoise,
+    themes,
 };
 
 const FIELD_RESOLUTION: Resolution = Resolution::new(220, 120);
@@ -36,19 +37,6 @@ fn wrap(value: f32, size: f32) -> f32 {
 
 fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
     Vec2::new(wrap(point.x, size.x), wrap(point.y, size.y))
-}
-
-fn band_color(y: f32) -> Color {
-    let t = (y / FIELD_SIZE.y).clamp(0.0, 1.0);
-    if t < 0.25 {
-        Color::from_hex("#252261")
-    } else if t < 0.50 {
-        Color::from_hex("#6E7CA8")
-    } else if t < 0.75 {
-        Color::from_hex("#DD86B0")
-    } else {
-        Color::from_hex("#B4A5B9")
-    }
 }
 
 // Per-particle glitter: lerp each base color toward cool silver-white by normal-alignment amount
@@ -107,7 +95,7 @@ impl GelScene {
             ))
             .collect();
 
-        let colors = positions.iter().map(|p| band_color(p.y)).collect();
+        let colors = positions.iter().map(|p| themes::aurora(Vec2::new(p.x / FIELD_SIZE.x, p.y / FIELD_SIZE.y))).collect();
 
         Self { field, positions, colors }
     }
