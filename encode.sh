@@ -13,13 +13,13 @@ GOP=$((FPS * 2))
 case "$1" in
     *.gif)
         ffmpeg -hide_banner \
-          -f rawvideo -pixel_format rgb32 -framerate "$FPS" -video_size "$RESOLUTION" -i - \
+          -f rawvideo -pixel_format rgba -framerate "$FPS" -video_size "$RESOLUTION" -i - \
           -vf "fps=$FPS,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
           "$1"
         ;;
     *)
         ffmpeg -hide_banner \
-          -f rawvideo -pixel_format rgb32 -framerate "$FPS" -video_size "$RESOLUTION" -i - \
+          -f rawvideo -pixel_format rgba -framerate "$FPS" -video_size "$RESOLUTION" -i - \
           -an \
           -c:v libx264 -preset slow -profile:v high -level 4.1 \
           -pix_fmt yuv420p \
