@@ -139,9 +139,8 @@ impl GelScene {
     }
 }
 
-// Nearly top-down, slight forward tilt — matches the reference screenshot angle
 fn camera_eye() -> Vec3 {
-    Vec3::new(0.0, 3.5, 0.5)
+    Vec3::new(0.0, 2.8, 1.8)
 }
 
 fn view() -> Mat4 {
@@ -189,6 +188,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
 
     let mut scene = GelScene::new();
+
+    let warmup = 8.0_f32;
+    for _ in 0..(warmup * fps) as usize {
+        scene.advance(dt);
+    }
 
     for frame in 0..(DURATION * fps) as usize {
         let time = frame as f32 / fps;
