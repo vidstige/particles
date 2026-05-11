@@ -13,9 +13,7 @@ use particles::{
     field::Field,
     fluid::{advect, project_incompressible},
     glow::Glow,
-    glitter::{
-        glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
-    },
+    glitter::{glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
     projection::project_cloud,
     render::Render,
     resolution::Resolution,
@@ -23,15 +21,14 @@ use particles::{
     simplex::SimplexNoise,
 };
 
-const DURATION: f32 = 30.0;
 const FIELD_RESOLUTION: Resolution = Resolution::new(220, 120);
 const FIELD_SIZE: Vec2 = Vec2::new(5.5, 3.0);
 const PRESSURE_ITERATIONS: usize = 200;
 const PARTICLE_COUNT: usize = 16 * 1024;
-const MEAN_SPEED: f32 = 0.6;
-const Z_SPREAD: f32 = 1.5;
-// Fractional speed remaining after 1 second: 0.7 means 70% after 1s, ~10% after 7s
+const MEAN_SPEED: f32 = 0.5;
+const Z_SPREAD: f32 = 0.8;
 const VISCOUS_DECAY_PER_SECOND: f32 = 0.85;
+const DURATION: f32 = 30.0;
 
 fn wrap(value: f32, size: f32) -> f32 {
     value.rem_euclid(size)
@@ -41,23 +38,49 @@ fn wrap_point(point: Vec2, size: Vec2) -> Vec2 {
     Vec2::new(wrap(point.x, size.x), wrap(point.y, size.y))
 }
 
+fn band_color(y: f32) -> Color {
+    let t = (y / FIELD_SIZE.y).clamp(0.0, 1.0);
+    if t < 0.25 {
+        Color::from_hex("#252261")
+    } else if t < 0.50 {
+        Color::from_hex("#6E7CA8")
+    } else if t < 0.75 {
+        Color::from_hex("#DD86B0")
+    } else {
+        Color::from_hex("#B4A5B9")
+    }
+}
+
+// Per-particle glitter: lerp each base color toward cool silver-white by normal-alignment amount
+fn apply_glitter(colors: &[Color], normals: &[Vec3], vdir: Vec3, glitter: Glitter) -> Vec<Color> {
+    let white = Color::new(4.0, 3.8, 4.5); // cool silver-white sparkle (target avg 152,146,163)
+    normals
+        .iter()
+        .zip(colors.iter())
+        .map(|(normal, &color)| {
+            let t = normal.dot(vdir).clamp(0.0, 1.0).powf(glitter.falloff_power);
+            Color::new(
+                color.red + (white.red - color.red) * t,
+                color.green + (white.green - color.green) * t,
+                color.blue + (white.blue - color.blue) * t,
+            )
+        })
+        .collect()
+}
+
 fn initial_field(resolution: Resolution, size: Vec2) -> Field<Vec2> {
     let width = resolution.width as usize;
     let height = resolution.height as usize;
     let mut field = Field::new(resolution, size, Vec2::ZERO);
-    let x_noise = SimplexNoise::new(0xdead_beef, 1.8, 1.0);
-    let y_noise = SimplexNoise::new(0xcafe_babe, 1.8, 1.0);
+    let xn = SimplexNoise::new(0xdead_beef, 1.8, 1.0);
+    let yn = SimplexNoise::new(0xcafe_babe, 1.8, 1.0);
     for y in 0..height {
         for x in 0..width {
-            let point = field.sample(x, y) / size;
-            field.set(
-                x,
-                y,
-                Vec2::new(
-                    x_noise.sample(Vec4::new(point.x, point.y, 0.17, 0.0)),
-                    y_noise.sample(Vec4::new(point.x, point.y, 3.41, 0.0)),
-                ),
-            );
+            let p = field.sample(x, y) / size;
+            field.set(x, y, Vec2::new(
+                xn.sample(Vec4::new(p.x, p.y, 0.17, 0.0)),
+                yn.sample(Vec4::new(p.x, p.y, 3.41, 0.0)),
+            ));
         }
     }
     field
@@ -66,6 +89,7 @@ fn initial_field(resolution: Resolution, size: Vec2) -> Field<Vec2> {
 struct GelScene {
     field: Field<Vec2>,
     positions: Vec<Vec3>,
+    colors: Vec<Color>,
 }
 
 impl GelScene {
@@ -75,17 +99,17 @@ impl GelScene {
         project_incompressible(&mut field, PRESSURE_ITERATIONS);
         field *= MEAN_SPEED / field.mean_length();
 
-        let positions = (0..PARTICLE_COUNT)
-            .map(|_| {
-                Vec3::new(
-                    rng.next_f32_in(0.0, FIELD_SIZE.x),
-                    rng.next_f32_in(0.0, FIELD_SIZE.y),
-                    rng.next_f32_in(-Z_SPREAD, Z_SPREAD),
-                )
-            })
+        let positions: Vec<Vec3> = (0..PARTICLE_COUNT)
+            .map(|_| Vec3::new(
+                rng.next_f32_in(0.0, FIELD_SIZE.x),
+                rng.next_f32_in(0.0, FIELD_SIZE.y),
+                rng.next_f32_in(-Z_SPREAD, Z_SPREAD),
+            ))
             .collect();
 
-        Self { field, positions }
+        let colors = positions.iter().map(|p| band_color(p.y)).collect();
+
+        Self { field, positions, colors }
     }
 
     fn advance(&mut self, dt: f32) {
@@ -115,6 +139,7 @@ impl GelScene {
     }
 }
 
+// Nearly top-down, slight forward tilt — matches the reference screenshot angle
 fn camera_eye() -> Vec3 {
     Vec3::new(0.0, 3.5, 0.5)
 }
@@ -134,8 +159,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolution = resolution()?;
     let mut bitmap = Bitmap::new(resolution.clone());
 
-    let background = Rgba8::from_rgb(5, 4, 16);
-    let base_color = Color::from_rgb8(70, 25, 145);
+    let background = Rgba8::from_rgb(16, 16, 48);
 
     let camera = camera_eye();
     let depth_field = DepthField {
@@ -145,15 +169,12 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     let glow = Downscaled {
-        inner: Glow {
-            softener: 0.3,
-            radius: 4.0,
-        },
+        inner: Glow { softener: 0.40, radius: 4.0 },
         scale: 4,
     };
 
     let glitter = Glitter {
-        falloff_power: 24.0,
+        falloff_power: 14.0,
         tumble_speed: 1.5,
         tumble_axis: Vec3::new(0.4, 1.0, 0.3),
         precession_axis: Vec3::new(0.2, 0.4, 1.0),
@@ -169,25 +190,24 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let mut scene = GelScene::new();
 
-    // Advance to inspection time (mid-gel, swirls formed but still slowing)
-    let inspect_time = 12.0;
-    let inspect_frames = (inspect_time * fps) as usize;
-    for _ in 0..inspect_frames {
+    for frame in 0..(DURATION * fps) as usize {
+        let time = frame as f32 / fps;
+
+        let rotation = tumble_rotation(time, glitter);
+        let rotated = rotate_normals(&normals, rotation);
+        let glitter_colors = apply_glitter(&scene.colors, &rotated, vdir, glitter);
+
+        bitmap.fill(background);
+        let positions = scene.cloud();
+        let projected = project_cloud(&bitmap, &positions, projection, view);
+        glow.render(&mut bitmap, &projected, &scene.colors);
+        depth_field.render(&mut bitmap, &projected, &glitter_colors);
+
+        output.write_all(bitmap.data())?;
+        output.flush()?;
+
         scene.advance(dt);
     }
-
-    let time = inspect_time;
-    let rotation = tumble_rotation(time, glitter);
-    let rotated = rotate_normals(&normals, rotation);
-    let colors = glitter_colors(base_color, &rotated, vdir, glitter);
-
-    bitmap.fill(background);
-    let positions = scene.cloud();
-    let projected = project_cloud(&bitmap, &positions, projection, view);
-    glow.render(&mut bitmap, &projected, &colors);
-    depth_field.render(&mut bitmap, &projected, &colors);
-
-    output.write_all(bitmap.data())?;
 
     Ok(())
 }
