@@ -60,21 +60,16 @@ pub fn glitter_normals(rng: &mut Rng, count: usize) -> Vec<Vec3> {
 }
 
 pub fn glitter_colors(
-    base_color: Color,
+    base_colors: &[Color],
     normals: &[Vec3],
     view_direction: Vec3,
     glitter: Glitter,
 ) -> Vec<Color> {
-    let glitter_tint = Color::new(4.0, 4.0, 4.0);
-    normals
+    let tint = Color::new(4.0, 4.0, 4.0);
+    base_colors
         .iter()
-        .map(|normal| {
-            lerp_color(
-                base_color,
-                glitter_tint,
-                glitter_amount(*normal, view_direction, glitter),
-            )
-        })
+        .zip(normals)
+        .map(|(&base, normal)| lerp_color(base, tint, glitter_amount(*normal, view_direction, glitter)))
         .collect()
 }
 
@@ -108,7 +103,7 @@ mod tests {
         };
         let normals = [view_direction, Vec3::X, -view_direction];
 
-        let colors = glitter_colors(base_color, &normals, view_direction, glitter);
+        let colors = glitter_colors(&vec![base_color; normals.len()], &normals, view_direction, glitter);
 
         assert_eq!(colors[0], Color::new(4.0, 4.0, 4.0));
         assert_eq!(colors[1], base_color);
@@ -191,9 +186,10 @@ mod tests {
             precession_speed: 0.0,
         };
         let normals = [view_direction];
-        let colors_at_start = glitter_colors(base_color, &normals, view_direction, glitter);
+        let base_colors = vec![base_color; normals.len()];
+        let colors_at_start = glitter_colors(&base_colors, &normals, view_direction, glitter);
         let colors_quarter_turn = glitter_colors(
-            base_color,
+            &base_colors,
             &rotate_normals(
                 &normals,
                 tumble_rotation(std::f32::consts::FRAC_PI_2, glitter),
@@ -204,5 +200,6 @@ mod tests {
 
         assert_eq!(colors_at_start[0], Color::new(4.0, 4.0, 4.0));
         assert_eq!(colors_quarter_turn[0], base_color);
+
     }
 }

@@ -12,9 +12,8 @@ use particles::{
     field::Field,
     fluid::{advect, project_incompressible},
     gerstner::{displaced_position, surface_grid, GerstnerWave},
-    glitter::{
-        glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter,
-    },
+    glitter::{glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
+    themes,
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
@@ -158,6 +157,7 @@ struct Scene {
     field: [SimplexNoise; 3],
     flow_field: Field<Vec2>,
     flow_positions: Vec<Vec2>,
+    flow_colors: Vec<Color>,
     gerstner_rest_positions: Vec<Vec3>,
     gerstner_waves: [GerstnerWave; 5],
 }
@@ -168,13 +168,15 @@ impl Scene {
         let rest_positions = collect(&mut Uniform3::new(), PARTICLE_COUNT, &mut rng);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_from_simplex();
-        let flow_positions = (0..PARTICLE_COUNT)
-            .map(|_| {
-                Vec2::new(
-                    rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
-                    rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y),
-                )
-            })
+        let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
+            .map(|_| Vec2::new(
+                rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
+                rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y),
+            ))
+            .collect();
+        let flow_colors = flow_positions
+            .iter()
+            .map(|p| themes::aurora(*p / FLOW_FIELD_SIZE))
             .collect();
         // 128 * 64 == PARTICLE_COUNT, so normals align without padding
         let gerstner_rest_positions = surface_grid(128, 64, Vec2::new(8.0, 4.0));
@@ -185,6 +187,7 @@ impl Scene {
             field: simplex_field(),
             flow_field,
             flow_positions,
+            flow_colors,
             gerstner_rest_positions,
             gerstner_waves: water_waves(),
         }
@@ -249,13 +252,13 @@ impl Scene {
         let projected = project_cloud(bitmap, &positions, projection(bitmap.resolution()), view);
         let rotated_normals =
             rotate_normals(&self.normals, tumble_rotation(time, settings.glitter));
-        let colors = glitter_colors(
-            settings.theme.foreground,
-            &rotated_normals,
-            view_direction(view),
-            settings.glitter,
-        );
-        let base_colors = vec![settings.theme.foreground; projected.len()];
+        let vdir = view_direction(view);
+        let base_colors = if mode == FieldMode::Incompressible {
+            self.flow_colors.clone()
+        } else {
+            vec![settings.theme.foreground; projected.len()]
+        };
+        let colors = glitter_colors(&base_colors, &rotated_normals, vdir, settings.glitter);
         let bloom = Downscaled {
             inner: settings.glow,
             scale: 4,
