@@ -451,6 +451,14 @@ impl eframe::App for TweakApp {
                     egui::Slider::new(&mut self.settings.glow.radius, 0.25..=16.0)
                         .text("Radius"),
                 );
+
+                ui.separator();
+                ui.heading("Camera");
+                let eye = self.camera.eye();
+                let t = self.camera.target;
+                let fmt = |v: Vec3| format!("Vec3::new({:.2}, {:.2}, {:.2})", v.x, v.y, v.z);
+                ui.add(egui::Label::new(egui::RichText::new(fmt(eye)).monospace()).selectable(true));
+                ui.add(egui::Label::new(egui::RichText::new(fmt(t)).monospace().weak()).selectable(true));
             });
 
         self.scene.render(
