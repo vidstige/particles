@@ -501,15 +501,19 @@ impl eframe::App for TweakApp {
                     ctx.request_repaint();
                 }
 
-                let scroll = ctx.input(|input| {
-                    if response.hovered() && input.modifiers.any() {
-                        input.smooth_scroll_delta.y
+                let (scroll_delta, modified) = ctx.input(|input| {
+                    if response.hovered() {
+                        (input.smooth_scroll_delta, input.modifiers.any())
                     } else {
-                        0.0
+                        (egui::Vec2::ZERO, false)
                     }
                 });
-                if scroll != 0.0 {
-                    self.camera.zoom(scroll);
+                if scroll_delta != egui::Vec2::ZERO {
+                    if modified {
+                        self.camera.zoom(scroll_delta.y);
+                    } else {
+                        self.camera.pan(scroll_delta, response.rect);
+                    }
                     ctx.request_repaint();
                 }
             }
