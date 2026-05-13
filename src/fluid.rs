@@ -2,7 +2,7 @@ use glam::Vec2;
 
 use crate::{
     field::{divergence_at, subtract, Field},
-    poisson::solve_poisson_jacobi,
+    poisson::solve_poisson_gauss_seidel,
 };
 
 pub fn divergence(field: &Field<Vec2>) -> Field<f32> {
@@ -35,7 +35,7 @@ pub fn gradient(field: &Field<f32>) -> Field<Vec2> {
 }
 
 pub fn project_incompressible(field: &mut Field<Vec2>, iterations: usize) {
-    let pressure = solve_poisson_jacobi(&divergence(field), iterations);
+    let pressure = solve_poisson_gauss_seidel(&divergence(field), iterations);
     subtract(field, &gradient(&pressure));
 }
 
