@@ -77,8 +77,7 @@ fn flow_field_from_simplex() -> Field<Vec2> {
             ));
         }
     }
-    let mut pressure = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, 0.0f32);
-    project_incompressible(&mut field, &mut pressure, 160);
+    project_incompressible(&mut field, 160);
     field
 }
 
@@ -141,7 +140,6 @@ fn density_field() -> Field<Color> {
 struct Scene {
     normals: Vec<glam::Vec3>,
     flow_field: Field<Vec2>,
-    pressure: Field<f32>,
     density: Field<Color>,
     density_positions: Vec<Vec3>,
     flow_positions: Vec<Vec2>,
@@ -153,7 +151,6 @@ impl Scene {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_with_vortex();
-        let pressure = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, 0.0f32);
         let density = density_field();
         let offset = FLOW_FIELD_SIZE * 0.5;
         let density_positions: Vec<Vec3> = (0..FLOW_FIELD_RESOLUTION.height as usize)
@@ -176,12 +173,12 @@ impl Scene {
             .map(|p| themes::aurora(*p / FLOW_FIELD_SIZE))
             .collect();
 
-        Self { normals, flow_field, pressure, density, density_positions, flow_positions, flow_colors }
+        Self { normals, flow_field, density, density_positions, flow_positions, flow_colors }
     }
 
     fn advance(&mut self, dt: f32) {
         self.flow_field = advect(&self.flow_field, dt);
-        project_incompressible(&mut self.flow_field, &mut self.pressure, 20);
+        project_incompressible(&mut self.flow_field, 20);
         self.density = advect_scalar(&self.density, &self.flow_field, dt);
         for position in &mut self.flow_positions {
             let next = *position + self.flow_field.interpolate(*position) * dt;

@@ -36,9 +36,10 @@ pub fn gradient(field: &Field<f32>) -> Field<Vec2> {
     gradient
 }
 
-pub fn project_incompressible(field: &mut Field<Vec2>, pressure: &mut Field<f32>, iterations: usize) {
-    solve_poisson_gauss_seidel(&divergence(field), pressure, iterations);
-    subtract(field, &gradient(pressure));
+pub fn project_incompressible(field: &mut Field<Vec2>, iterations: usize) {
+    let mut pressure = field.new_like(0.0f32);
+    solve_poisson_gauss_seidel(&divergence(field), &mut pressure, iterations);
+    subtract(field, &gradient(&pressure));
 }
 
 pub fn advect_scalar<T>(density: &Field<T>, velocity: &Field<Vec2>, dt: f32) -> Field<T>
