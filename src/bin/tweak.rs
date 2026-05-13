@@ -2,12 +2,12 @@ use eframe::egui::{self, TextureHandle, TextureOptions};
 use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
-    color::Rgba8,
+    color::{Color, Rgba8},
     depth_field::DepthField,
     downscaled::Downscaled,
     env::DEFAULT_RESOLUTION,
     field::Field,
-    fluid::{advect, project_incompressible},
+    fluid::{advect, advect_scalar, project_incompressible},
     glow::Glow,
     glitter::{glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
     projection::project_cloud,
@@ -127,12 +127,25 @@ impl Settings {
     }
 }
 
+fn density_field() -> Field<Color> {
+    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Color::BLACK);
+    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
+        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
+            let pos = field.sample(x, y);
+            field.set(x, y, themes::aurora(pos / FLOW_FIELD_SIZE));
+        }
+    }
+    field
+}
+
 struct Scene {
     normals: Vec<glam::Vec3>,
     flow_field: Field<Vec2>,
     pressure: Field<f32>,
+    density: Field<Color>,
+    density_positions: Vec<Vec3>,
     flow_positions: Vec<Vec2>,
-    flow_colors: Vec<particles::color::Color>,
+    flow_colors: Vec<Color>,
 }
 
 impl Scene {
@@ -141,6 +154,17 @@ impl Scene {
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_with_vortex();
         let pressure = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, 0.0f32);
+        let density = density_field();
+        let offset = FLOW_FIELD_SIZE * 0.5;
+        let density_positions: Vec<Vec3> = (0..FLOW_FIELD_RESOLUTION.height as usize)
+            .flat_map(|y| (0..FLOW_FIELD_RESOLUTION.width as usize).map(move |x| {
+                let pos = Vec2::new(
+                    x as f32 * FLOW_FIELD_SIZE.x / FLOW_FIELD_RESOLUTION.width as f32,
+                    y as f32 * FLOW_FIELD_SIZE.y / FLOW_FIELD_RESOLUTION.height as f32,
+                ) - offset;
+                Vec3::new(pos.x, 0.0, pos.y)
+            }))
+            .collect();
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
                 rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
@@ -152,12 +176,13 @@ impl Scene {
             .map(|p| themes::aurora(*p / FLOW_FIELD_SIZE))
             .collect();
 
-        Self { normals, flow_field, pressure, flow_positions, flow_colors }
+        Self { normals, flow_field, pressure, density, density_positions, flow_positions, flow_colors }
     }
 
     fn advance(&mut self, dt: f32) {
         self.flow_field = advect(&self.flow_field, dt);
         project_incompressible(&mut self.flow_field, &mut self.pressure, 20);
+        self.density = advect_scalar(&self.density, &self.flow_field, dt);
         for position in &mut self.flow_positions {
             let next = *position + self.flow_field.interpolate(*position) * dt;
             *position = Vec2::new(
@@ -171,16 +196,20 @@ impl Scene {
         bitmap.fill(settings.background);
 
         let offset = FLOW_FIELD_SIZE * 0.5;
+        let bloom = Downscaled { inner: settings.glow, scale: 4 };
+
+        let density_colors = self.density.values.clone();
+        let density_projected = project_cloud(bitmap, &self.density_positions, projection(bitmap.resolution()), view);
+        bloom.render(bitmap, &density_projected, &density_colors);
+
         let positions: Vec<Vec3> = self.flow_positions
             .iter()
             .map(|p| { let p = *p - offset; Vec3::new(p.x, 0.0, p.y) })
             .collect();
-
         let projected = project_cloud(bitmap, &positions, projection(bitmap.resolution()), view);
         let rotated_normals = rotate_normals(&self.normals, tumble_rotation(time, settings.glitter));
         let vdir = view_direction(view);
         let colors = glitter_colors(&self.flow_colors, &rotated_normals, vdir, settings.glitter);
-        let bloom = Downscaled { inner: settings.glow, scale: 4 };
         bloom.render(bitmap, &projected, &self.flow_colors);
         settings.depth_field.render(bitmap, &projected, &colors);
     }

@@ -1,3 +1,5 @@
+use std::ops::{Add, Mul, Sub};
+
 use glam::Vec2;
 
 use crate::{
@@ -37,6 +39,22 @@ pub fn gradient(field: &Field<f32>) -> Field<Vec2> {
 pub fn project_incompressible(field: &mut Field<Vec2>, pressure: &mut Field<f32>, iterations: usize) {
     solve_poisson_gauss_seidel(&divergence(field), pressure, iterations);
     subtract(field, &gradient(pressure));
+}
+
+pub fn advect_scalar<T>(density: &Field<T>, velocity: &Field<Vec2>, dt: f32) -> Field<T>
+where
+    T: Clone + Default + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
+{
+    let mut result = density.new_like(T::default());
+    for y in 0..density.height() {
+        for x in 0..density.width() {
+            let pos = density.sample(x, y);
+            let prev_pos = pos - velocity.interpolate(pos) * dt;
+            let index = density.index(x as isize, y as isize);
+            result.set_index(index, density.interpolate(prev_pos));
+        }
+    }
+    result
 }
 
 pub fn advect(field: &Field<Vec2>, dt: f32) -> Field<Vec2> {

@@ -1,4 +1,4 @@
-use std::ops::MulAssign;
+use std::ops::{Add, Mul, MulAssign, Sub};
 
 use glam::Vec2;
 
@@ -8,7 +8,7 @@ pub struct Field<T> {
     pub(crate) resolution: Resolution,
     // Full world-space size of the field. Stored values live on the grid corners.
     pub(crate) size: Vec2,
-    pub(crate) values: Vec<T>,
+    pub values: Vec<T>,
 }
 
 fn wrap(value: f32, size: f32) -> f32 {
@@ -75,31 +75,30 @@ impl<T> Field<T> {
     pub(crate) fn set_index(&mut self, index: usize, value: T) {
         self.values[index] = value;
     }
-}
 
-impl Field<Vec2> {
-    fn sample_cell(&self, x: isize, y: isize) -> Vec2 {
-        self.values[self.index(x, y)]
-    }
-
-    pub fn mean_length(&self) -> f32 {
-        self.values.iter().map(|value| value.length()).sum::<f32>() / self.values.len() as f32
-    }
-
-    pub fn interpolate(&self, point: Vec2) -> Vec2 {
+    pub fn interpolate(&self, point: Vec2) -> T
+    where
+        T: Clone + Add<Output = T> + Sub<Output = T> + Mul<f32, Output = T>,
+    {
         let point = wrap_point(point, self.size);
         let grid = point / self.cell_size();
         let base = grid.floor();
         let fraction = grid - base;
         let x = base.x as isize;
         let y = base.y as isize;
-        let v00 = self.sample_cell(x, y);
-        let v10 = self.sample_cell(x + 1, y);
-        let v01 = self.sample_cell(x, y + 1);
-        let v11 = self.sample_cell(x + 1, y + 1);
-        let low = v00.lerp(v10, fraction.x);
-        let high = v01.lerp(v11, fraction.x);
-        low.lerp(high, fraction.y)
+        let v00 = self.values[self.index(x,     y    )].clone();
+        let v10 = self.values[self.index(x + 1, y    )].clone();
+        let v01 = self.values[self.index(x,     y + 1)].clone();
+        let v11 = self.values[self.index(x + 1, y + 1)].clone();
+        let low  = v00.clone() + (v10 - v00) * fraction.x;
+        let high = v01.clone() + (v11 - v01) * fraction.x;
+        low.clone() + (high - low) * fraction.y
+    }
+}
+
+impl Field<Vec2> {
+    pub fn mean_length(&self) -> f32 {
+        self.values.iter().map(|value| value.length()).sum::<f32>() / self.values.len() as f32
     }
 }
 
@@ -130,6 +129,10 @@ pub fn subtract(left: &mut Field<Vec2>, right: &Field<Vec2>) {
 }
 
 impl Field<f32> {
+    pub fn at(&self, x: usize, y: usize) -> f32 {
+        self.values[self.index(x as isize, y as isize)]
+    }
+
     pub(crate) fn get(&self, index: usize) -> f32 {
         self.values[index]
     }

@@ -1,3 +1,4 @@
+use std::ops::{Add, Mul, Sub};
 use std::str::FromStr;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -105,5 +106,30 @@ impl Rgba8 {
             (self.blue as f32 * scale).round().clamp(0.0, 255.0) as u8,
             (self.alpha as f32 * scale).round().clamp(0.0, 255.0) as u8,
         )
+    }
+}
+
+impl Default for Color {
+    fn default() -> Self { Self::BLACK }
+}
+
+impl Add for Color {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self::new(self.red + rhs.red, self.green + rhs.green, self.blue + rhs.blue)
+    }
+}
+
+impl Sub for Color {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self::new(self.red - rhs.red, self.green - rhs.green, self.blue - rhs.blue)
+    }
+}
+
+impl Mul<f32> for Color {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self {
+        Self::new(self.red * rhs, self.green * rhs, self.blue * rhs)
     }
 }
