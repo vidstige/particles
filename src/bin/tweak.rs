@@ -75,7 +75,8 @@ fn flow_field_from_simplex() -> Field<Vec2> {
             ));
         }
     }
-    project_incompressible(&mut field, 160);
+    let mut pressure = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, 0.0f32);
+    project_incompressible(&mut field, &mut pressure, 160);
     field
 }
 
@@ -127,6 +128,7 @@ impl Settings {
 struct Scene {
     normals: Vec<glam::Vec3>,
     flow_field: Field<Vec2>,
+    pressure: Field<f32>,
     flow_positions: Vec<Vec2>,
     flow_colors: Vec<particles::color::Color>,
 }
@@ -136,6 +138,7 @@ impl Scene {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_with_vortex();
+        let pressure = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, 0.0f32);
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
                 rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
@@ -147,12 +150,12 @@ impl Scene {
             .map(|p| themes::aurora(*p / FLOW_FIELD_SIZE))
             .collect();
 
-        Self { normals, flow_field, flow_positions, flow_colors }
+        Self { normals, flow_field, pressure, flow_positions, flow_colors }
     }
 
     fn advance(&mut self, dt: f32) {
         self.flow_field = advect(&self.flow_field, dt);
-        project_incompressible(&mut self.flow_field, 40);
+        project_incompressible(&mut self.flow_field, &mut self.pressure, 20);
         for position in &mut self.flow_positions {
             let next = *position + self.flow_field.interpolate(*position) * dt;
             *position = Vec2::new(

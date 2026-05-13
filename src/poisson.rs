@@ -1,7 +1,6 @@
 use crate::field::Field;
 
-pub fn solve_poisson_gauss_seidel(rhs: &Field<f32>, iterations: usize) -> Field<f32> {
-    let mut p = rhs.new_like(0.0);
+pub fn solve_poisson_gauss_seidel(rhs: &Field<f32>, p: &mut Field<f32>, iterations: usize) {
     let cell_size = rhs.cell_size();
     let inverse_dx2 = 1.0 / cell_size.x.powi(2);
     let inverse_dy2 = 1.0 / cell_size.y.powi(2);
@@ -25,6 +24,4 @@ pub fn solve_poisson_gauss_seidel(rhs: &Field<f32>, iterations: usize) -> Field<
             }
         }
     }
-
-    p
 }

@@ -34,9 +34,9 @@ pub fn gradient(field: &Field<f32>) -> Field<Vec2> {
     gradient
 }
 
-pub fn project_incompressible(field: &mut Field<Vec2>, iterations: usize) {
-    let pressure = solve_poisson_gauss_seidel(&divergence(field), iterations);
-    subtract(field, &gradient(&pressure));
+pub fn project_incompressible(field: &mut Field<Vec2>, pressure: &mut Field<f32>, iterations: usize) {
+    solve_poisson_gauss_seidel(&divergence(field), pressure, iterations);
+    subtract(field, &gradient(pressure));
 }
 
 pub fn advect(field: &Field<Vec2>, dt: f32) -> Field<Vec2> {
@@ -87,7 +87,8 @@ mod tests {
         let mut field = divergent_field(Resolution::new(32, 24));
 
         let before = divergence_rms(&field);
-        project_incompressible(&mut field, 80);
+        let mut pressure = field.new_like(0.0f32);
+        project_incompressible(&mut field, &mut pressure, 80);
         let after = divergence_rms(&field);
 
         assert!(after < before * 0.2, "{before} -> {after}");
