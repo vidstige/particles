@@ -31,6 +31,12 @@ impl Bitmap {
         &self.data
     }
 
+    pub fn set_pixel(&mut self, x: u32, y: u32, color: Rgba8) {
+        if let Some(index) = self.pixel_index(x, y) {
+            self.data[index..index + 4].copy_from_slice(&[color.red, color.green, color.blue, color.alpha]);
+        }
+    }
+
     pub fn fill(&mut self, color: Rgba8) {
         for pixel in self.data.chunks_exact_mut(4) {
             pixel.copy_from_slice(&[color.red, color.green, color.blue, color.alpha]);

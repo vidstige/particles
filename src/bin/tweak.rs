@@ -1,5 +1,5 @@
 use eframe::egui::{self, TextureHandle, TextureOptions};
-use glam::{Mat4, Vec2, Vec3, Vec4};
+use glam::{Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
@@ -42,6 +42,36 @@ fn vortex_vel(delta: Vec2, strength: f32, radius: f32) -> Vec2 {
         -strength * delta.y / (radius * radius) * exp_falloff,
          strength * delta.x / (radius * radius) * exp_falloff,
     )
+}
+
+fn draw_density_texture(bitmap: &mut particles::bitmap::Bitmap, density: &Field<Color>, view: Mat4) {
+    let proj = projection(bitmap.resolution());
+    let inv_vp = (proj * view).inverse();
+    let width = bitmap.width() as f32;
+    let height = bitmap.height() as f32;
+    let offset = FLOW_FIELD_SIZE * 0.5;
+
+    for py in 0..bitmap.height() {
+        for px in 0..bitmap.width() {
+            let x_ndc = (px as f32 + 0.5) / width * 2.0 - 1.0;
+            let y_ndc = 1.0 - (py as f32 + 0.5) / height * 2.0;
+
+            let near_h = inv_vp * Vec4::new(x_ndc, y_ndc, -1.0, 1.0);
+            let near = near_h.xyz() / near_h.w;
+            let far_h = inv_vp * Vec4::new(x_ndc, y_ndc, 1.0, 1.0);
+            let far = far_h.xyz() / far_h.w;
+
+            let dir = far - near;
+            if dir.y.abs() < 1e-6 { continue; }
+            let t = -near.y / dir.y;
+            if t < 0.0 { continue; }
+            let world = near + dir * t;
+
+            let field_pos = Vec2::new(world.x + offset.x, world.z + offset.y);
+            let color = density.interpolate(field_pos);
+            bitmap.set_pixel(px, py, color.to_rgba8(1.0));
+        }
+    }
 }
 
 fn flow_field_with_vortex() -> Field<Vec2> {
@@ -141,7 +171,6 @@ struct Scene {
     normals: Vec<glam::Vec3>,
     flow_field: Field<Vec2>,
     density: Field<Color>,
-    density_positions: Vec<Vec3>,
     flow_positions: Vec<Vec2>,
     flow_colors: Vec<Color>,
 }
@@ -152,16 +181,6 @@ impl Scene {
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_with_vortex();
         let density = density_field();
-        let offset = FLOW_FIELD_SIZE * 0.5;
-        let density_positions: Vec<Vec3> = (0..FLOW_FIELD_RESOLUTION.height as usize)
-            .flat_map(|y| (0..FLOW_FIELD_RESOLUTION.width as usize).map(move |x| {
-                let pos = Vec2::new(
-                    x as f32 * FLOW_FIELD_SIZE.x / FLOW_FIELD_RESOLUTION.width as f32,
-                    y as f32 * FLOW_FIELD_SIZE.y / FLOW_FIELD_RESOLUTION.height as f32,
-                ) - offset;
-                Vec3::new(pos.x, 0.0, pos.y)
-            }))
-            .collect();
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
                 rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
@@ -173,7 +192,7 @@ impl Scene {
             .map(|p| themes::aurora(*p / FLOW_FIELD_SIZE))
             .collect();
 
-        Self { normals, flow_field, density, density_positions, flow_positions, flow_colors }
+        Self { normals, flow_field, density, flow_positions, flow_colors }
     }
 
     fn advance(&mut self, dt: f32) {
@@ -195,9 +214,7 @@ impl Scene {
         let offset = FLOW_FIELD_SIZE * 0.5;
         let bloom = Downscaled { inner: settings.glow, scale: 4 };
 
-        let density_colors = self.density.values.clone();
-        let density_projected = project_cloud(bitmap, &self.density_positions, projection(bitmap.resolution()), view);
-        bloom.render(bitmap, &density_projected, &density_colors);
+        draw_density_texture(bitmap, &self.density, view);
 
         let positions: Vec<Vec3> = self.flow_positions
             .iter()
