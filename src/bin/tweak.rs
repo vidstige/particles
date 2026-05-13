@@ -24,7 +24,6 @@ const GLITTER_TUMBLE_SPEED: f32 = 2.0;
 const GLITTER_PRECESSION_SPEED: f32 = 1.5;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
 const FLOW_FIELD_SIZE: Vec2 = Vec2::new(8.0, 8.0);
-const FLOW_MEAN_SPEED: f32 = 0.35;
 
 fn format_time(seconds: f32) -> String {
     format!("{seconds:05.2}s")
@@ -34,6 +33,31 @@ fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
     let size = egui::Vec2::new(bitmap.width() as f32, bitmap.height() as f32);
     let scale = (available.x / size.x).min(available.y / size.y);
     size * scale
+}
+
+// Gaussian vortex from stream function ψ = strength·exp(-r²/2R²).
+// Compact support (velocity → 0 exponentially), exactly divergence-free.
+// drift adds a uniform background flow that carries the vortex across the field.
+fn add_vortex(field: &mut Field<Vec2>, center: Vec2, strength: f32, radius: f32, drift: Vec2) {
+    let r2_scale = 2.0 * radius * radius;
+    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
+        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
+            let delta = field.sample(x, y) - center;
+            let exp_falloff = (-delta.length_squared() / r2_scale).exp();
+            let vel = Vec2::new(
+                -strength * delta.y / (radius * radius) * exp_falloff,
+                 strength * delta.x / (radius * radius) * exp_falloff,
+            );
+            field.set(x, y, vel + drift);
+        }
+    }
+}
+
+fn flow_field_with_vortex() -> Field<Vec2> {
+    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
+    let center = Vec2::new(FLOW_FIELD_SIZE.x * 0.75, FLOW_FIELD_SIZE.y * 0.75);
+    add_vortex(&mut field, center, 5.0, 1.0, Vec2::new(0.1, -0.1));
+    field
 }
 
 fn flow_field_from_simplex() -> Field<Vec2> {
@@ -52,7 +76,6 @@ fn flow_field_from_simplex() -> Field<Vec2> {
         }
     }
     project_incompressible(&mut field, 160);
-    field *= FLOW_MEAN_SPEED / field.mean_length();
     field
 }
 
@@ -112,7 +135,7 @@ impl Scene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
-        let flow_field = flow_field_from_simplex();
+        let flow_field = flow_field_with_vortex();
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
                 rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
