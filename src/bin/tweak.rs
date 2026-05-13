@@ -35,28 +35,30 @@ fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
     size * scale
 }
 
-// Gaussian vortex from stream function ψ = strength·exp(-r²/2R²).
-// Compact support (velocity → 0 exponentially), exactly divergence-free.
-// drift adds a uniform background flow that carries the vortex across the field.
-fn add_vortex(field: &mut Field<Vec2>, center: Vec2, strength: f32, radius: f32, drift: Vec2) {
-    let r2_scale = 2.0 * radius * radius;
-    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
-        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
-            let delta = field.sample(x, y) - center;
-            let exp_falloff = (-delta.length_squared() / r2_scale).exp();
-            let vel = Vec2::new(
-                -strength * delta.y / (radius * radius) * exp_falloff,
-                 strength * delta.x / (radius * radius) * exp_falloff,
-            );
-            field.set(x, y, vel + drift);
-        }
-    }
+// Gaussian vortex velocity at a point, derived from stream function ψ = strength·exp(-r²/2R²).
+fn vortex_vel(delta: Vec2, strength: f32, radius: f32) -> Vec2 {
+    let exp_falloff = (-delta.length_squared() / (2.0 * radius * radius)).exp();
+    Vec2::new(
+        -strength * delta.y / (radius * radius) * exp_falloff,
+         strength * delta.x / (radius * radius) * exp_falloff,
+    )
 }
 
 fn flow_field_with_vortex() -> Field<Vec2> {
     let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
-    let center = Vec2::new(FLOW_FIELD_SIZE.x * 0.75, FLOW_FIELD_SIZE.y * 0.75);
-    add_vortex(&mut field, center, 5.0, 1.0, Vec2::new(0.1, -0.1));
+    let center = FLOW_FIELD_SIZE * 0.25;
+    let perp_dir = Vec2::new(-1.0, 1.0);
+    let spacing = 0.6;
+    let center1 = center + perp_dir * spacing;
+    let center2 = center - perp_dir * spacing;
+    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
+        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
+            let pos = field.sample(x, y);
+            let vel = vortex_vel(pos - center1,  1.0, 0.5)
+                    + vortex_vel(pos - center2, -1.0, 0.5);
+            field.set(x, y, vel);
+        }
+    }
     field
 }
 
@@ -97,8 +99,8 @@ impl Settings {
         Self {
             background: Rgba8::from_rgb(16, 16, 48),
             depth_field: DepthField {
-                focus_depth: 2.0,
-                blur: 2.0,
+                focus_depth: 7.0,
+                blur: 1.0,
                 particle_radius: resolution.area_scale(&DEFAULT_RESOLUTION),
             },
             glitter: Glitter {
@@ -287,7 +289,7 @@ impl eframe::App for TweakApp {
                         .text("Blur"),
                 );
                 ui.add(
-                    egui::Slider::new(&mut self.settings.depth_field.focus_depth, 0.1..=8.0)
+                    egui::Slider::new(&mut self.settings.depth_field.focus_depth, 0.1..=12.0)
                         .text("Focus depth"),
                 );
                 ui.add(
@@ -404,7 +406,7 @@ fn main() -> eframe::Result {
                 settings: Settings::for_resolution(&resolution),
                 bitmap: Bitmap::new(resolution),
                 texture: None,
-                camera: Camera::new(Vec3::new(0.0, 2.8, 1.8), Vec3::ZERO),
+                camera: Camera::new(Vec3::new(0.0, 7.0, 0.5), Vec3::ZERO),
                 time: 0.0,
                 playing: true,
                 last_ui_time: None,
