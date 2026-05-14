@@ -19,10 +19,6 @@ fn circle_area(radius: f32) -> f32 {
     std::f32::consts::PI * radius.max(f32::MIN_POSITIVE).powi(2)
 }
 
-fn overflow_scale(color: Color) -> f32 {
-    color.red.max(color.green).max(color.blue).max(1.0)
-}
-
 fn render_cloud(
     target: &mut Bitmap,
     positions: &[Option<Vec3>],
@@ -37,8 +33,7 @@ fn render_cloud(
         };
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
         let radius = depth_field.particle_radius + depth_field.blur * focal_distance;
-        let alpha =
-            circle_area(depth_field.particle_radius) / circle_area(radius) * overflow_scale(color);
+        let alpha = circle_area(depth_field.particle_radius) / circle_area(radius);
         draw_disk(target, particle.truncate(), radius, color.to_rgba8(alpha));
     }
 }
