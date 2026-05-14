@@ -19,7 +19,7 @@ use particles::{
     resolution::Resolution,
     rng::Rng,
     simplex::SimplexNoise,
-    themes,
+    themes::{Aurora, Sample},
 };
 
 const FIELD_RESOLUTION: Resolution = Resolution::new(220, 120);
@@ -95,7 +95,7 @@ impl GelScene {
             ))
             .collect();
 
-        let colors = positions.iter().map(|p| themes::aurora(Vec2::new(p.x / FIELD_SIZE.x, p.y / FIELD_SIZE.y))).collect();
+        let colors = positions.iter().map(|p| Aurora.sample(Vec2::new(p.x / FIELD_SIZE.x, p.y / FIELD_SIZE.y))).collect();
 
         Self { field, positions, colors }
     }
