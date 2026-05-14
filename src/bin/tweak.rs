@@ -13,11 +13,11 @@ use particles::{
     resolution::Resolution,
     rng::Rng,
     simplex::SimplexNoise,
-    themes::{self, Aurora, Sample},
+    themes::{self, Cosmos, Sample},
 };
 
 const DURATION: f32 = 24.0;
-const PARTICLE_COUNT: usize = 16 * 1024;
+const PARTICLE_COUNT: usize = 32 * 1024;
 const GLITTER_TUMBLE_SPEED: f32 = 2.0;
 const GLITTER_PRECESSION_SPEED: f32 = 1.5;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
@@ -163,7 +163,7 @@ impl Scene {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_with_vortex();
-        let density = themes::sample_at_resolution(Aurora, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
+        let density = themes::sample_at_resolution(Cosmos, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
                 rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
@@ -172,7 +172,7 @@ impl Scene {
             .collect();
         let flow_colors = flow_positions
             .iter()
-            .map(|p| Aurora.sample(*p / FLOW_FIELD_SIZE))
+            .map(|p| Cosmos.sample(*p / FLOW_FIELD_SIZE))
             .collect();
 
         Self { normals, flow_field, density, flow_positions, flow_colors }
