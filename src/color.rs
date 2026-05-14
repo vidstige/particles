@@ -60,9 +60,9 @@ impl Color {
     pub fn to_rgba8(self, alpha: f32) -> Rgba8 {
         let alpha = alpha.clamp(0.0, 1.0);
         Rgba8::new(
-            (self.red.clamp(0.0, 1.0) * alpha * 255.0).round() as u8,
-            (self.green.clamp(0.0, 1.0) * alpha * 255.0).round() as u8,
-            (self.blue.clamp(0.0, 1.0) * alpha * 255.0).round() as u8,
+            (self.red.clamp(0.0, 1.0) * 255.0).round() as u8,
+            (self.green.clamp(0.0, 1.0) * 255.0).round() as u8,
+            (self.blue.clamp(0.0, 1.0) * 255.0).round() as u8,
             (alpha * 255.0).round() as u8,
         )
     }
