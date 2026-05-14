@@ -4,11 +4,9 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     depth_field::DepthField,
-    downscaled::Downscaled,
     env::DEFAULT_RESOLUTION,
     field::Field,
     fluid::{advect, advect_scalar, project_incompressible},
-    glow::Glow,
     glitter::{glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
     projection::project_cloud,
     render::Render,
@@ -120,7 +118,6 @@ struct Settings {
     background: Rgba8,
     depth_field: DepthField,
     glitter: Glitter,
-    glow: Glow,
 }
 
 impl Settings {
@@ -138,10 +135,6 @@ impl Settings {
                 tumble_axis: Vec3::new(0.4, 1.0, 0.3).normalize(),
                 precession_axis: Vec3::new(0.2, 0.4, 1.0).normalize(),
                 precession_speed: GLITTER_PRECESSION_SPEED,
-            },
-            glow: Glow {
-                softener: 0.40,
-                radius: 4.0,
             },
         }
     }
@@ -212,7 +205,6 @@ impl Scene {
         bitmap.fill(settings.background);
 
         let offset = FLOW_FIELD_SIZE * 0.5;
-        let bloom = Downscaled { inner: settings.glow, scale: 4 };
 
         draw_density_texture(bitmap, &self.density, view);
 
@@ -224,7 +216,6 @@ impl Scene {
         let rotated_normals = rotate_normals(&self.normals, tumble_rotation(time, settings.glitter));
         let vdir = view_direction(view);
         let colors = glitter_colors(&self.flow_colors, &rotated_normals, vdir, settings.glitter);
-        bloom.render(bitmap, &projected, &self.flow_colors);
         settings.depth_field.render(bitmap, &projected, &colors);
     }
 }
@@ -350,17 +341,6 @@ impl eframe::App for TweakApp {
                 {
                     self.settings.set_glitter_speed(glitter_speed);
                 }
-
-                ui.separator();
-                ui.heading("Glow");
-                ui.add(
-                    egui::Slider::new(&mut self.settings.glow.softener, 0.0..=1.0)
-                        .text("Softener"),
-                );
-                ui.add(
-                    egui::Slider::new(&mut self.settings.glow.radius, 0.25..=16.0)
-                        .text("Radius"),
-                );
 
                 ui.separator();
                 ui.heading("Camera");
