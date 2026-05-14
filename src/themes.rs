@@ -1,10 +1,24 @@
 use glam::Vec2;
 
-use crate::color::Color;
+use crate::{color::Color, field::Field, resolution::Resolution};
 
 pub trait Sample {
     type Output;
     fn sample(&self, point: Vec2) -> Self::Output;
+}
+
+pub fn sample_at_resolution<S: Sample>(sample: S, resolution: Resolution, size: Vec2) -> Field<S::Output>
+where
+    S::Output: Clone + Default,
+{
+    let mut field = Field::new(resolution.clone(), size, S::Output::default());
+    for y in 0..resolution.height as usize {
+        for x in 0..resolution.width as usize {
+            let pos = field.sample(x, y);
+            field.set(x, y, sample.sample(pos / size));
+        }
+    }
+    field
 }
 
 pub struct Aurora;

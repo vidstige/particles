@@ -13,7 +13,7 @@ use particles::{
     resolution::Resolution,
     rng::Rng,
     simplex::SimplexNoise,
-    themes::{Aurora, Sample},
+    themes::{self, Aurora, Sample},
 };
 
 const DURATION: f32 = 24.0;
@@ -149,16 +149,6 @@ impl Settings {
     }
 }
 
-fn density_field<S: Sample<Output = Color>>(theme: S) -> Field<Color> {
-    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Color::BLACK);
-    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
-        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
-            let pos = field.sample(x, y);
-            field.set(x, y, theme.sample(pos / FLOW_FIELD_SIZE));
-        }
-    }
-    field
-}
 
 struct Scene {
     normals: Vec<glam::Vec3>,
@@ -173,7 +163,7 @@ impl Scene {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
         let flow_field = flow_field_with_vortex();
-        let density = density_field(Aurora);
+        let density = themes::sample_at_resolution(Aurora, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
                 rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x),
