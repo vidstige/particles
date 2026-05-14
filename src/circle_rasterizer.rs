@@ -49,12 +49,12 @@ pub fn draw_disk(bitmap: &mut Bitmap, center: Vec2, radius: f32, color: Rgba8) {
                 continue;
             }
 
-            let color = color.scale(alpha);
+            let t = alpha * color.alpha as f32 / 255.0;
             let index = (y as usize * width as usize + x as usize) * 4;
-            data[index] = data[index].saturating_add(color.red);
-            data[index + 1] = data[index + 1].saturating_add(color.green);
-            data[index + 2] = data[index + 2].saturating_add(color.blue);
-            data[index + 3] = data[index + 3].saturating_add(color.alpha);
+            data[index] = (color.red as f32 * t + data[index] as f32 * (1.0 - t)) as u8;
+            data[index + 1] = (color.green as f32 * t + data[index + 1] as f32 * (1.0 - t)) as u8;
+            data[index + 2] = (color.blue as f32 * t + data[index + 2] as f32 * (1.0 - t)) as u8;
+            data[index + 3] = (255.0 * t + data[index + 3] as f32 * (1.0 - t)) as u8;
         }
     }
 }
