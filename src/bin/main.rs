@@ -7,6 +7,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
+    data::Dat,
     depth_field::{DepthField, Theme},
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
@@ -17,6 +18,17 @@ use particles::{
     rng::Rng,
     simplex::SimplexNoise,
 };
+
+fn parse_f32(s: &str) -> Option<f32> { s.parse().ok() }
+fn parse_vec3(s: &str) -> Option<Vec3> {
+    let s = s.strip_prefix('(')?.strip_suffix(')')?;
+    let mut p = s.split(',');
+    Some(Vec3::new(
+        p.next()?.trim().parse().ok()?,
+        p.next()?.trim().parse().ok()?,
+        p.next()?.trim().parse().ok()?,
+    ))
+}
 
 const DURATION: f32 = 24.0;
 const FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
@@ -135,12 +147,39 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolution = resolution()?;
     let mut bitmap = Bitmap::new(resolution);
     let theme = theme();
-    let depth_field = depth_field(bitmap.resolution());
-    let view = view();
     let projection = projection(bitmap.resolution());
     let colors = vec![theme.foreground; PARTICLE_COUNT];
     let frame_count = (DURATION * fps) as usize;
     let mut scene = SwirlScene::new();
+
+    let dat_path = std::env::args().nth(1).unwrap_or_else(|| "tweaks.dat".to_string());
+    let dat = Dat::read(&dat_path).ok();
+
+    let eye = dat.as_ref()
+        .and_then(|d| d.get("camera", "eye"))
+        .and_then(parse_vec3)
+        .unwrap_or_else(camera_eye);
+    let target = dat.as_ref()
+        .and_then(|d| d.get("camera", "target"))
+        .and_then(parse_vec3)
+        .unwrap_or(Vec3::ZERO);
+    let view = Mat4::look_at_rh(eye, target, Vec3::Y);
+
+    let mut depth_field = depth_field(bitmap.resolution());
+    if let Some(d) = &dat {
+        if let Some(v) = d.get("depth_field", "focus_depth").and_then(parse_f32) { depth_field.focus_depth = v; }
+        if let Some(v) = d.get("depth_field", "blur").and_then(parse_f32) { depth_field.blur = v; }
+        if let Some(v) = d.get("depth_field", "particle_radius").and_then(parse_f32) { depth_field.particle_radius = v; }
+    }
+
+    let start_time = dat.as_ref()
+        .and_then(|d| d.get("", "time"))
+        .and_then(parse_f32)
+        .unwrap_or(0.0);
+    let warmup_steps = (start_time / dt).round() as usize;
+    for _ in 0..warmup_steps {
+        scene.advance(dt);
+    }
 
     for _ in 0..frame_count {
         bitmap.fill(theme.background);
