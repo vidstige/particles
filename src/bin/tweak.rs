@@ -33,15 +33,6 @@ fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
     size * scale
 }
 
-// Gaussian vortex velocity at a point, derived from stream function ψ = strength·exp(-r²/2R²).
-fn vortex_vel(delta: Vec2, strength: f32, radius: f32) -> Vec2 {
-    let exp_falloff = (-delta.length_squared() / (2.0 * radius * radius)).exp();
-    Vec2::new(
-        -strength * delta.y / (radius * radius) * exp_falloff,
-         strength * delta.x / (radius * radius) * exp_falloff,
-    )
-}
-
 fn draw_density_texture(bitmap: &mut particles::bitmap::Bitmap, density: &Field<Color>, view: Mat4) {
     let proj = projection(bitmap.resolution());
     let inv_vp = (proj * view).inverse();
@@ -72,19 +63,33 @@ fn draw_density_texture(bitmap: &mut particles::bitmap::Bitmap, density: &Field<
     }
 }
 
-fn flow_field_with_vortex() -> Field<Vec2> {
+fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
+    let p0 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
+    let p1 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
+    let p2 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
+
     let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
-    let center = FLOW_FIELD_SIZE * 0.25;
-    let perp_dir = Vec2::new(-1.0, 1.0);
-    let spacing = 0.6;
-    let center1 = center + perp_dir * spacing;
-    let center2 = center - perp_dir * spacing;
+    let radius = 2.0_f32;
+    let steps = 400;
+
     for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
         for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
             let pos = field.sample(x, y);
-            let vel = vortex_vel(pos - center1,  1.0, 0.5)
-                    + vortex_vel(pos - center2, -1.0, 0.5);
-            field.set(x, y, vel);
+            let mut best_dist = f32::MAX;
+            let mut best_tangent = Vec2::ZERO;
+            for i in 0..=steps {
+                let t = i as f32 / steps as f32;
+                let mt = 1.0 - t;
+                let curve_pos = p0 * (mt * mt) + p1 * (2.0 * mt * t) + p2 * (t * t);
+                let dist = (pos - curve_pos).length();
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_tangent = ((p1 - p0) * (2.0 * mt) + (p2 - p1) * (2.0 * t)).normalize_or_zero();
+                }
+            }
+            if best_dist < radius {
+                field.set(x, y, best_tangent);
+            }
         }
     }
     field
@@ -162,7 +167,7 @@ impl Scene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
-        let flow_field = flow_field_with_vortex();
+        let flow_field = flow_field_from_bezier(&mut rng);
         let density = themes::sample_at_resolution(Cosmos, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
