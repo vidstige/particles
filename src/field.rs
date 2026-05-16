@@ -43,11 +43,11 @@ impl<T> Field<T> {
         y * self.width() + x
     }
 
-    pub(crate) fn width(&self) -> usize {
+    pub fn width(&self) -> usize {
         self.resolution.width as usize
     }
 
-    pub(crate) fn height(&self) -> usize {
+    pub fn height(&self) -> usize {
         self.resolution.height as usize
     }
 
