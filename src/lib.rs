@@ -1,5 +1,6 @@
 pub mod assignment;
 pub mod data;
+pub mod vec3_fmt;
 pub mod bitmap;
 pub mod circle_rasterizer;
 pub mod color;

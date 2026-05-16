@@ -7,7 +7,8 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
-    data::{Dat, DatVec3},
+    data::Dat,
+    vec3_fmt::DatVec3,
     depth_field::{DepthField, Theme},
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
