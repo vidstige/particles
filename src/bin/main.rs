@@ -7,7 +7,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
-    data::Dat,
+    data::{Dat, DatVec3},
     depth_field::{DepthField, Theme},
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
@@ -19,16 +19,6 @@ use particles::{
     simplex::SimplexNoise,
 };
 
-fn parse_f32(s: &str) -> Option<f32> { s.parse().ok() }
-fn parse_vec3(s: &str) -> Option<Vec3> {
-    let s = s.strip_prefix('(')?.strip_suffix(')')?;
-    let mut p = s.split(',');
-    Some(Vec3::new(
-        p.next()?.trim().parse().ok()?,
-        p.next()?.trim().parse().ok()?,
-        p.next()?.trim().parse().ok()?,
-    ))
-}
 
 const DURATION: f32 = 24.0;
 const FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
@@ -157,25 +147,27 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let eye = dat.as_ref()
         .and_then(|d| d.get("camera", "eye"))
-        .and_then(parse_vec3)
+        .and_then(|s| s.parse::<DatVec3>().ok())
+        .map(|v| v.0)
         .unwrap_or_else(camera_eye);
     let target = dat.as_ref()
         .and_then(|d| d.get("camera", "target"))
-        .and_then(parse_vec3)
+        .and_then(|s| s.parse::<DatVec3>().ok())
+        .map(|v| v.0)
         .unwrap_or(Vec3::ZERO);
     let view = Mat4::look_at_rh(eye, target, Vec3::Y);
 
     let mut depth_field = depth_field(bitmap.resolution());
     if let Some(d) = &dat {
-        if let Some(v) = d.get("depth_field", "focus_depth").and_then(parse_f32) { depth_field.focus_depth = v; }
-        if let Some(v) = d.get("depth_field", "blur").and_then(parse_f32) { depth_field.blur = v; }
-        if let Some(v) = d.get("depth_field", "particle_radius").and_then(parse_f32) { depth_field.particle_radius = v; }
+        if let Some(v) = d.get("depth_field", "focus_depth").and_then(|s| s.parse().ok()) { depth_field.focus_depth = v; }
+        if let Some(v) = d.get("depth_field", "blur").and_then(|s| s.parse().ok()) { depth_field.blur = v; }
+        if let Some(v) = d.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { depth_field.particle_radius = v; }
     }
 
     let start_time = dat.as_ref()
         .and_then(|d| d.get("", "time"))
-        .and_then(parse_f32)
-        .unwrap_or(0.0);
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0.0_f32);
     let warmup_steps = (start_time / dt).round() as usize;
     for _ in 0..warmup_steps {
         scene.advance(dt);

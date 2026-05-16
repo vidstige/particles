@@ -3,7 +3,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
-    data::Dat,
+    data::{Dat, DatVec3},
     depth_field::DepthField,
     env::DEFAULT_RESOLUTION,
     field::Field,
@@ -408,34 +408,20 @@ impl eframe::App for TweakApp {
     }
 }
 
-fn fmt_f32(v: f32) -> String { format!("{v:.4}") }
-fn fmt_vec3(v: Vec3) -> String { format!("({:.4}, {:.4}, {:.4})", v.x, v.y, v.z) }
-
-fn parse_f32(s: &str) -> Option<f32> { s.parse().ok() }
-fn parse_vec3(s: &str) -> Option<Vec3> {
-    let s = s.strip_prefix('(')?.strip_suffix(')')?;
-    let mut p = s.split(',');
-    Some(Vec3::new(
-        p.next()?.trim().parse().ok()?,
-        p.next()?.trim().parse().ok()?,
-        p.next()?.trim().parse().ok()?,
-    ))
-}
-
 fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
     let mut dat = Dat::new();
-    dat.set("", "time", &fmt_f32(time));
-    dat.set("camera", "eye", &fmt_vec3(camera.eye()));
-    dat.set("camera", "target", &fmt_vec3(camera.target));
-    dat.set("camera", "yaw", &fmt_f32(camera.yaw));
-    dat.set("camera", "pitch", &fmt_f32(camera.pitch));
-    dat.set("camera", "distance", &fmt_f32(camera.distance));
-    dat.set("camera", "fov", &fmt_f32(45.0));
-    dat.set("camera", "near", &fmt_f32(0.1));
-    dat.set("camera", "far", &fmt_f32(12.0));
-    dat.set("depth_field", "focus_depth", &fmt_f32(settings.depth_field.focus_depth));
-    dat.set("depth_field", "blur", &fmt_f32(settings.depth_field.blur));
-    dat.set("depth_field", "particle_radius", &fmt_f32(settings.depth_field.particle_radius));
+    dat.set("", "time", &format!("{time:.4}"));
+    dat.set("camera", "eye", &DatVec3(camera.eye()).to_string());
+    dat.set("camera", "target", &DatVec3(camera.target).to_string());
+    dat.set("camera", "yaw", &format!("{:.4}", camera.yaw));
+    dat.set("camera", "pitch", &format!("{:.4}", camera.pitch));
+    dat.set("camera", "distance", &format!("{:.4}", camera.distance));
+    dat.set("camera", "fov", &format!("{:.4}", 45.0_f32));
+    dat.set("camera", "near", &format!("{:.4}", 0.1_f32));
+    dat.set("camera", "far", &format!("{:.4}", 12.0_f32));
+    dat.set("depth_field", "focus_depth", &format!("{:.4}", settings.depth_field.focus_depth));
+    dat.set("depth_field", "blur", &format!("{:.4}", settings.depth_field.blur));
+    dat.set("depth_field", "particle_radius", &format!("{:.4}", settings.depth_field.particle_radius));
     if let Err(e) = dat.write(path) {
         eprintln!("Failed to save {path}: {e}");
     }
