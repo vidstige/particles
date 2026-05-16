@@ -3,6 +3,7 @@ use glam::{Mat4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
+    data::Dat,
     depth_field::DepthField,
     env::DEFAULT_RESOLUTION,
     field::Field,
@@ -88,7 +89,7 @@ fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
                 }
             }
             if best_dist < radius {
-                field.set(x, y, best_tangent);
+                field.set(x, y, 0.5 * best_tangent);
             }
         }
     }
@@ -274,6 +275,7 @@ struct TweakApp {
     time: f32,
     playing: bool,
     last_ui_time: Option<f64>,
+    save_path: String,
 }
 
 impl eframe::App for TweakApp {
@@ -338,12 +340,12 @@ impl eframe::App for TweakApp {
                 }
 
                 ui.separator();
-                ui.heading("Camera");
-                let eye = self.camera.eye();
-                let t = self.camera.target;
-                let fmt = |v: Vec3| format!("Vec3::new({:.2}, {:.2}, {:.2})", v.x, v.y, v.z);
-                ui.add(egui::Label::new(egui::RichText::new(fmt(eye)).monospace()).selectable(true));
-                ui.add(egui::Label::new(egui::RichText::new(fmt(t)).monospace().weak()).selectable(true));
+                ui.horizontal(|ui| {
+                    ui.text_edit_singleline(&mut self.save_path);
+                    if ui.button("Save").clicked() {
+                        save_tweaks(&self.save_path, &self.camera, &self.settings, self.time);
+                    }
+                });
             });
 
         self.scene.render(&mut self.bitmap, self.time, self.settings, self.camera.view());
@@ -406,6 +408,39 @@ impl eframe::App for TweakApp {
     }
 }
 
+fn fmt_f32(v: f32) -> String { format!("{v:.4}") }
+fn fmt_vec3(v: Vec3) -> String { format!("({:.4}, {:.4}, {:.4})", v.x, v.y, v.z) }
+
+fn parse_f32(s: &str) -> Option<f32> { s.parse().ok() }
+fn parse_vec3(s: &str) -> Option<Vec3> {
+    let s = s.strip_prefix('(')?.strip_suffix(')')?;
+    let mut p = s.split(',');
+    Some(Vec3::new(
+        p.next()?.trim().parse().ok()?,
+        p.next()?.trim().parse().ok()?,
+        p.next()?.trim().parse().ok()?,
+    ))
+}
+
+fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
+    let mut dat = Dat::new();
+    dat.set("", "time", &fmt_f32(time));
+    dat.set("camera", "eye", &fmt_vec3(camera.eye()));
+    dat.set("camera", "target", &fmt_vec3(camera.target));
+    dat.set("camera", "yaw", &fmt_f32(camera.yaw));
+    dat.set("camera", "pitch", &fmt_f32(camera.pitch));
+    dat.set("camera", "distance", &fmt_f32(camera.distance));
+    dat.set("camera", "fov", &fmt_f32(45.0));
+    dat.set("camera", "near", &fmt_f32(0.1));
+    dat.set("camera", "far", &fmt_f32(12.0));
+    dat.set("depth_field", "focus_depth", &fmt_f32(settings.depth_field.focus_depth));
+    dat.set("depth_field", "blur", &fmt_f32(settings.depth_field.blur));
+    dat.set("depth_field", "particle_radius", &fmt_f32(settings.depth_field.particle_radius));
+    if let Err(e) = dat.write(path) {
+        eprintln!("Failed to save {path}: {e}");
+    }
+}
+
 fn main() -> eframe::Result {
     let resolution = DEFAULT_RESOLUTION;
     let options = eframe::NativeOptions {
@@ -428,6 +463,7 @@ fn main() -> eframe::Result {
                 time: 0.0,
                 playing: true,
                 last_ui_time: None,
+                save_path: "tweaks.dat".to_string(),
             }))
         }),
     )
