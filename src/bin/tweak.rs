@@ -443,7 +443,6 @@ fn save_fields(path: &str, scene: &Scene) {
 
 fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
     let mut dat = Dat::new();
-    dat.set("", "time", &format!("{time:.4}"));
     dat.set("camera", "eye", &DatVec3(camera.eye()).to_string());
     dat.set("camera", "target", &DatVec3(camera.target).to_string());
     dat.set("camera", "yaw", &format!("{:.4}", camera.yaw));

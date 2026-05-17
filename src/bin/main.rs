@@ -8,6 +8,7 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     data::Dat,
+    npy::read_npz,
     vec3_fmt::DatVec3,
     depth_field::{DepthField, Theme},
     render::Render,
@@ -139,9 +140,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let mut bitmap = Bitmap::new(resolution);
     let theme = theme();
     let projection = projection(bitmap.resolution());
-    let colors = vec![theme.foreground; PARTICLE_COUNT];
     let frame_count = (DURATION * fps) as usize;
     let mut scene = SwirlScene::new();
+    let mut density: Option<Field<Color>> = None;
 
     let dat_path = std::env::args().nth(1).unwrap_or_else(|| "tweaks.dat".to_string());
     let dat = Dat::read(&dat_path).ok();
@@ -165,17 +166,44 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(v) = d.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { depth_field.particle_radius = v; }
     }
 
-    let start_time = dat.as_ref()
-        .and_then(|d| d.get("", "time"))
-        .and_then(|s| s.parse().ok())
-        .unwrap_or(0.0_f32);
-    let warmup_steps = (start_time / dt).round() as usize;
-    for _ in 0..warmup_steps {
-        scene.advance(dt);
+    let fields_path = std::env::args().nth(2).unwrap_or_else(|| "fields.npz".to_string());
+    if let Ok(npz) = read_npz(&fields_path) {
+        if let (Some(vel), Some(ws)) = (npz.get("velocity"), npz.get("world_size")) {
+            if vel.shape.len() == 3 && vel.shape[2] == 2 && ws.data.len() == 2 {
+                let h = vel.shape[0] as u32;
+                let w = vel.shape[1] as u32;
+                let size = Vec2::new(ws.data[0], ws.data[1]);
+                let mut field = Field::new(Resolution::new(w, h), size, Vec2::ZERO);
+                for (v, chunk) in field.values.iter_mut().zip(vel.data.chunks(2)) {
+                    *v = Vec2::new(chunk[0], chunk[1]);
+                }
+                scene.field = field;
+                let mut rng = Rng::new(0x1234_5678);
+                scene.positions = (0..PARTICLE_COUNT)
+                    .map(|_| Vec2::new(rng.next_f32_in(0.0, size.x), rng.next_f32_in(0.0, size.y)))
+                    .collect();
+
+                if let Some(den) = npz.get("density") {
+                    if den.shape.len() == 3 && den.shape[2] == 3 {
+                        let h = den.shape[0] as u32;
+                        let w = den.shape[1] as u32;
+                        let mut field = Field::new(Resolution::new(w, h), size, Color::BLACK);
+                        for (c, chunk) in field.values.iter_mut().zip(den.data.chunks(3)) {
+                            *c = Color::new(chunk[0], chunk[1], chunk[2]);
+                        }
+                        density = Some(field);
+                    }
+                }
+            }
+        }
     }
 
     for _ in 0..frame_count {
         bitmap.fill(theme.background);
+        let colors: Vec<Color> = match &density {
+            Some(d) => scene.positions.iter().map(|p| d.interpolate(*p)).collect(),
+            None => vec![theme.foreground; PARTICLE_COUNT],
+        };
         let positions = scene.cloud();
         let projected = project_cloud(&bitmap, &positions, projection, view);
         depth_field.render(&mut bitmap, &projected, &colors);

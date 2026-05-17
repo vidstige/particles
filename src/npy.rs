@@ -1,4 +1,4 @@
-use std::{fs, io};
+use std::{collections::HashMap, fs, io};
 
 fn crc32(data: &[u8]) -> u32 {
     let mut crc: u32 = !0;
@@ -114,4 +114,70 @@ fn write_eocd(out: &mut Vec<u8>, count: u16, dir_size: u32, dir_offset: u32) {
     u16le(out, count); u16le(out, count);
     u32le(out, dir_size); u32le(out, dir_offset);
     u16le(out, 0); // comment length
+}
+
+// --- reading ---
+
+pub struct NpyArray {
+    pub shape: Vec<usize>,
+    pub data: Vec<f32>,
+}
+
+fn r16(b: &[u8], o: usize) -> u16 { u16::from_le_bytes([b[o], b[o+1]]) }
+fn r32(b: &[u8], o: usize) -> u32 { u32::from_le_bytes([b[o], b[o+1], b[o+2], b[o+3]]) }
+
+fn parse_shape(header: &str) -> Option<Vec<usize>> {
+    let start = header.find("'shape': (")? + "'shape': (".len();
+    let end   = start + header[start..].find(')')?;
+    header[start..end].split(',')
+        .filter_map(|s| s.trim().parse().ok())
+        .collect::<Vec<usize>>()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .into()
+}
+
+fn parse_npy(b: &[u8]) -> Option<NpyArray> {
+    if b.len() < 10 || &b[..6] != b"\x93NUMPY" { return None; }
+    let header_len = r16(b, 8) as usize;
+    let header = std::str::from_utf8(&b[10..10 + header_len]).ok()?;
+    let shape = parse_shape(header)?;
+    let floats = b[10 + header_len..].chunks_exact(4)
+        .map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]]))
+        .collect();
+    Some(NpyArray { shape, data: floats })
+}
+
+pub fn read_npz(path: &str) -> io::Result<HashMap<String, NpyArray>> {
+    let b = fs::read(path)?;
+    let mut result = HashMap::new();
+
+    if b.len() < 22 || r32(&b, b.len() - 22) != 0x06054b50 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "not a ZIP file"));
+    }
+    let cd_offset = r32(&b, b.len() - 22 + 16) as usize;
+    let count     = r16(&b, b.len() - 22 + 10) as usize;
+
+    let mut pos = cd_offset;
+    for _ in 0..count {
+        if r32(&b, pos) != 0x02014b50 { break; }
+        let fname_len   = r16(&b, pos + 28) as usize;
+        let extra_len   = r16(&b, pos + 30) as usize;
+        let comment_len = r16(&b, pos + 32) as usize;
+        let local_off   = r32(&b, pos + 42) as usize;
+        let name = String::from_utf8_lossy(&b[pos + 46..pos + 46 + fname_len]).into_owned();
+        pos += 46 + fname_len + extra_len + comment_len;
+
+        if r32(&b, local_off) != 0x04034b50 { continue; }
+        let lname_len = r16(&b, local_off + 26) as usize;
+        let lextra_len = r16(&b, local_off + 28) as usize;
+        let data_off  = local_off + 30 + lname_len + lextra_len;
+        let data_size = r32(&b, local_off + 18) as usize;
+
+        let key = name.strip_suffix(".npy").unwrap_or(&name).to_string();
+        if let Some(array) = parse_npy(&b[data_off..data_off + data_size]) {
+            result.insert(key, array);
+        }
+    }
+    Ok(result)
 }
