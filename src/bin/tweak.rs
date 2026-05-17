@@ -4,6 +4,7 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     data::Dat,
+    texture::draw_texture,
     npy::Npz,
     vec3_fmt::DatVec3,
     depth_field::DepthField,
@@ -36,35 +37,6 @@ fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
     size * scale
 }
 
-fn draw_density_texture(bitmap: &mut particles::bitmap::Bitmap, density: &Field<Color>, view: Mat4) {
-    let proj = projection(bitmap.resolution());
-    let inv_vp = (proj * view).inverse();
-    let width = bitmap.width() as f32;
-    let height = bitmap.height() as f32;
-    let offset = FLOW_FIELD_SIZE * 0.5;
-
-    for py in 0..bitmap.height() {
-        for px in 0..bitmap.width() {
-            let x_ndc = (px as f32 + 0.5) / width * 2.0 - 1.0;
-            let y_ndc = 1.0 - (py as f32 + 0.5) / height * 2.0;
-
-            let near_h = inv_vp * Vec4::new(x_ndc, y_ndc, -1.0, 1.0);
-            let near = near_h.xyz() / near_h.w;
-            let far_h = inv_vp * Vec4::new(x_ndc, y_ndc, 1.0, 1.0);
-            let far = far_h.xyz() / far_h.w;
-
-            let dir = far - near;
-            if dir.y.abs() < 1e-6 { continue; }
-            let t = -near.y / dir.y;
-            if t < 0.0 { continue; }
-            let world = near + dir * t;
-
-            let field_pos = Vec2::new(world.x + offset.x, world.z + offset.y);
-            let color = density.interpolate(field_pos);
-            bitmap.set_pixel(px, py, color.to_rgba8(1.0));
-        }
-    }
-}
 
 fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
     let p0 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
@@ -203,8 +175,9 @@ impl Scene {
         bitmap.fill(settings.background);
 
         let offset = FLOW_FIELD_SIZE * 0.5;
+        let proj = projection(bitmap.resolution());
 
-        draw_density_texture(bitmap, &self.density, view);
+        draw_texture(bitmap, &self.density, proj, view);
 
         let positions: Vec<Vec3> = self.flow_positions
             .iter()

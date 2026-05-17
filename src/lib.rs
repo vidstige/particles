@@ -1,5 +1,6 @@
 pub mod assignment;
 pub mod data;
+pub mod texture;
 pub mod npy;
 pub mod vec3_fmt;
 pub mod bitmap;
