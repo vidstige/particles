@@ -16,6 +16,7 @@ pub mod fluid;
 pub mod gerstner;
 pub mod glow;
 pub mod glitter;
+pub mod glitter_io;
 pub mod point_cloud;
 pub mod poisson;
 pub mod projection;

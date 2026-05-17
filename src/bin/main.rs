@@ -15,6 +15,7 @@ use particles::{
     env::{fps, resolution, DEFAULT_RESOLUTION},
     field::Field,
     glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
+    glitter_io::load_glitter,
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
@@ -93,12 +94,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("colors missing from fields.npz")?
         .data.chunks(3).map(|c| Color::new(c[0], c[1], c[2])).collect();
 
-    let glitter = Glitter {
-        falloff_power: 14.0,
-        axis0_speed: 2.0,
-        axis0: Vec3::new(0.4, 1.0, 0.3).normalize(),
-        axis1: Vec3::new(0.2, 0.4, 1.0).normalize(),
-        axis1_speed: 1.5,
+    let glitter = {
+        let default = Glitter {
+            falloff_power: 14.0,
+            axis0_speed: 2.0,
+            axis0: Vec3::new(0.4, 1.0, 0.3).normalize(),
+            axis1: Vec3::new(0.2, 0.4, 1.0).normalize(),
+            axis1_speed: 1.5,
+        };
+        dat.as_ref().map_or(default, |d| load_glitter(d, default))
     };
     let vdir = view_direction(view);
     let mut rng = Rng::new(0x1234_5678);

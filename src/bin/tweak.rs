@@ -12,6 +12,7 @@ use particles::{
     field::Field,
     fluid::{advect, advect_scalar, project_incompressible},
     glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
+    glitter_io::{load_glitter, save_glitter},
     projection::project_cloud,
     render::Render,
     resolution::Resolution,
@@ -441,6 +442,7 @@ fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
     dat.set("depth_field", "focus_depth", &format!("{:.4}", settings.depth_field.focus_depth));
     dat.set("depth_field", "blur", &format!("{:.4}", settings.depth_field.blur));
     dat.set("depth_field", "particle_radius", &format!("{:.4}", settings.depth_field.particle_radius));
+    save_glitter(&mut dat, settings.glitter);
     if let Err(e) = dat.write(path) {
         eprintln!("Failed to save {path}: {e}");
     }
@@ -469,6 +471,7 @@ fn main() -> eframe::Result {
                 if let Some(v) = dat.get("depth_field", "focus_depth").and_then(|s| s.parse().ok()) { settings.depth_field.focus_depth = v; }
                 if let Some(v) = dat.get("depth_field", "blur").and_then(|s| s.parse().ok()) { settings.depth_field.blur = v; }
                 if let Some(v) = dat.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { settings.depth_field.particle_radius = v; }
+                settings.glitter = load_glitter(&dat, settings.glitter);
             }
             Ok(Box::new(TweakApp {
                 scene: Scene::new(),
