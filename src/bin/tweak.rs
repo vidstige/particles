@@ -483,12 +483,23 @@ fn main() -> eframe::Result {
         "gel tweak",
         options,
         Box::new(|_cc| {
+            let mut camera = Camera::new(Vec3::new(0.0, 7.0, 0.5), Vec3::ZERO);
+            let mut settings = Settings::for_resolution(&resolution);
+            if let Ok(dat) = Dat::read("tweaks.dat") {
+                if let Some(v) = dat.get("camera", "target").and_then(|s| s.parse::<DatVec3>().ok()) { camera.target = v.0; }
+                if let Some(v) = dat.get("camera", "yaw").and_then(|s| s.parse().ok()) { camera.yaw = v; }
+                if let Some(v) = dat.get("camera", "pitch").and_then(|s| s.parse().ok()) { camera.pitch = v; }
+                if let Some(v) = dat.get("camera", "distance").and_then(|s| s.parse().ok()) { camera.distance = v; }
+                if let Some(v) = dat.get("depth_field", "focus_depth").and_then(|s| s.parse().ok()) { settings.depth_field.focus_depth = v; }
+                if let Some(v) = dat.get("depth_field", "blur").and_then(|s| s.parse().ok()) { settings.depth_field.blur = v; }
+                if let Some(v) = dat.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { settings.depth_field.particle_radius = v; }
+            }
             Ok(Box::new(TweakApp {
                 scene: Scene::new(),
-                settings: Settings::for_resolution(&resolution),
+                settings,
                 bitmap: Bitmap::new(resolution),
                 texture: None,
-                camera: Camera::new(Vec3::new(0.0, 7.0, 0.5), Vec3::ZERO),
+                camera,
                 time: 0.0,
                 playing: true,
                 last_ui_time: None,
