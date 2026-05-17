@@ -10,7 +10,7 @@ use particles::{
     depth_field::DepthField,
     env::{fps, resolution, DEFAULT_RESOLUTION},
     gerstner::{displaced_position, surface_grid, GerstnerWave},
-    glitter::{glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
+    glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
     projection::project_cloud,
     render::Render,
     resolution::Resolution,
@@ -60,10 +60,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let glitter = Glitter {
         falloff_power: 19.2,
-        tumble_speed: 1.0,
-        tumble_axis: Vec3::new(0.4, 0.8, 0.2).normalize(),
-        precession_axis: Vec3::new(-0.3, 0.1, 0.9).normalize(),
-        precession_speed: 0.75,
+        axis0_speed: 1.0,
+        axis0: Vec3::new(0.4, 0.8, 0.2).normalize(),
+        axis1: Vec3::new(-0.3, 0.1, 0.9).normalize(),
+        axis1_speed: 0.75,
     };
 
     let view = view();
@@ -75,6 +75,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let rest_positions = surface_grid(128, 128, GRID_SIZE);
     let waves = waves();
 
+    let particle_count = rest_positions.len();
+    let mut tumble_times = vec![0.0f32; particle_count];
+    let mut prev_positions: Vec<Vec3> = rest_positions
+        .iter()
+        .map(|&rest| displaced_position(rest, &waves, 0.0))
+        .collect();
+
     for frame in 0..(DURATION * fps) as usize {
         let time = frame as f32 / fps;
 
@@ -83,8 +90,12 @@ fn main() -> Result<(), Box<dyn Error>> {
             .map(|&rest| displaced_position(rest, &waves, time * GERSTNER_SPEED))
             .collect();
 
-        let rotation = tumble_rotation(time, glitter);
-        let rotated = rotate_normals(&normals, rotation);
+        for ((tumble_time, prev), curr) in tumble_times.iter_mut().zip(&prev_positions).zip(&positions) {
+            *tumble_time += (*curr - *prev).length();
+        }
+        prev_positions = positions.clone();
+
+        let rotated = rotate_normals(&normals, &tumble_times, glitter);
         let colors = glitter_colors(&vec![foreground; positions.len()], &rotated, vdir, glitter);
 
         bitmap.fill(background);

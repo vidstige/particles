@@ -13,7 +13,7 @@ use particles::{
     field::Field,
     fluid::{advect, project_incompressible},
     glow::Glow,
-    glitter::{glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
+    glitter::{glitter_normals, rotate_normals, view_direction, Glitter},
     projection::project_cloud,
     render::Render,
     resolution::Resolution,
@@ -77,6 +77,7 @@ fn initial_field(resolution: Resolution, size: Vec2) -> Field<Vec2> {
 struct GelScene {
     field: Field<Vec2>,
     positions: Vec<Vec3>,
+    tumble_times: Vec<f32>,
     colors: Vec<Color>,
 }
 
@@ -97,7 +98,7 @@ impl GelScene {
 
         let colors = positions.iter().map(|p| Aurora.sample(Vec2::new(p.x / FIELD_SIZE.x, p.y / FIELD_SIZE.y))).collect();
 
-        Self { field, positions, colors }
+        Self { field, positions, tumble_times: vec![0.0; PARTICLE_COUNT], colors }
     }
 
     fn advance(&mut self, dt: f32) {
@@ -107,11 +108,13 @@ impl GelScene {
         // Viscous decay: the gel "sets" over time, naturally freezing the pattern
         self.field *= VISCOUS_DECAY_PER_SECOND.powf(dt);
 
-        for position in &mut self.positions {
+        for (position, tumble_time) in self.positions.iter_mut().zip(&mut self.tumble_times) {
             let xy = Vec2::new(position.x, position.y);
-            let new_xy = wrap_point(xy + self.field.interpolate(xy) * dt, self.field.size());
+            let velocity = self.field.interpolate(xy);
+            let new_xy = wrap_point(xy + velocity * dt, self.field.size());
             position.x = new_xy.x;
             position.y = new_xy.y;
+            *tumble_time += (velocity * dt).length();
         }
     }
 
@@ -162,10 +165,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let glitter = Glitter {
         falloff_power: 14.0,
-        tumble_speed: 1.5,
-        tumble_axis: Vec3::new(0.4, 1.0, 0.3),
-        precession_axis: Vec3::new(0.2, 0.4, 1.0),
-        precession_speed: 0.5,
+        axis0_speed: 1.5,
+        axis0: Vec3::new(0.4, 1.0, 0.3),
+        axis1: Vec3::new(0.2, 0.4, 1.0),
+        axis1_speed: 0.5,
     };
 
     let view = view();
@@ -182,11 +185,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         scene.advance(dt);
     }
 
-    for frame in 0..(DURATION * fps) as usize {
-        let time = frame as f32 / fps;
-
-        let rotation = tumble_rotation(time, glitter);
-        let rotated = rotate_normals(&normals, rotation);
+    for _frame in 0..(DURATION * fps) as usize {
+        let rotated = rotate_normals(&normals, &scene.tumble_times, glitter);
         let glitter_colors = apply_glitter(&scene.colors, &rotated, vdir, glitter);
 
         bitmap.fill(background);

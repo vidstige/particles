@@ -11,7 +11,7 @@ use particles::{
     env::DEFAULT_RESOLUTION,
     field::Field,
     fluid::{advect, advect_scalar, project_incompressible},
-    glitter::{glitter_colors, glitter_normals, rotate_normals, tumble_rotation, view_direction, Glitter},
+    glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
     projection::project_cloud,
     render::Render,
     resolution::Resolution,
@@ -22,8 +22,8 @@ use particles::{
 
 const DURATION: f32 = 24.0;
 const PARTICLE_COUNT: usize = 32 * 1024;
-const GLITTER_TUMBLE_SPEED: f32 = 2.0;
-const GLITTER_PRECESSION_SPEED: f32 = 1.5;
+const GLITTER_AXIS0_SPEED: f32 = 2.0;
+const GLITTER_AXIS1_SPEED: f32 = 1.5;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
 const FLOW_FIELD_SIZE: Vec2 = Vec2::new(8.0, 8.0);
 
@@ -111,27 +111,28 @@ impl Settings {
             },
             glitter: Glitter {
                 falloff_power: 14.0,
-                tumble_speed: GLITTER_TUMBLE_SPEED,
-                tumble_axis: Vec3::new(0.4, 1.0, 0.3).normalize(),
-                precession_axis: Vec3::new(0.2, 0.4, 1.0).normalize(),
-                precession_speed: GLITTER_PRECESSION_SPEED,
+                axis0_speed: GLITTER_AXIS0_SPEED,
+                axis0: Vec3::new(0.4, 1.0, 0.3).normalize(),
+                axis1: Vec3::new(0.2, 0.4, 1.0).normalize(),
+                axis1_speed: GLITTER_AXIS1_SPEED,
             },
         }
     }
 
     fn glitter_speed(&self) -> f32 {
-        self.glitter.tumble_speed
+        self.glitter.axis0_speed
     }
 
     fn set_glitter_speed(&mut self, speed: f32) {
-        self.glitter.tumble_speed = speed;
-        self.glitter.precession_speed = speed * GLITTER_PRECESSION_SPEED / GLITTER_TUMBLE_SPEED;
+        self.glitter.axis0_speed = speed;
+        self.glitter.axis1_speed = speed * GLITTER_AXIS1_SPEED / GLITTER_AXIS0_SPEED;
     }
 }
 
 
 struct Scene {
     normals: Vec<glam::Vec3>,
+    tumble_times: Vec<f32>,
     flow_field: Field<Vec2>,
     density: Field<Color>,
     flow_positions: Vec<Vec2>,
@@ -155,23 +156,25 @@ impl Scene {
             .map(|p| Cosmos.sample(*p / FLOW_FIELD_SIZE))
             .collect();
 
-        Self { normals, flow_field, density, flow_positions, flow_colors }
+        Self { normals, tumble_times: vec![0.0; PARTICLE_COUNT], flow_field, density, flow_positions, flow_colors }
     }
 
     fn advance(&mut self, dt: f32) {
         self.flow_field = advect(&self.flow_field, dt);
         project_incompressible(&mut self.flow_field, 20);
         self.density = advect_scalar(&self.density, &self.flow_field, dt);
-        for position in &mut self.flow_positions {
-            let next = *position + self.flow_field.interpolate(*position) * dt;
+        for (position, tumble_time) in self.flow_positions.iter_mut().zip(&mut self.tumble_times) {
+            let velocity = self.flow_field.interpolate(*position);
+            let next = *position + velocity * dt;
             *position = Vec2::new(
                 next.x.rem_euclid(FLOW_FIELD_SIZE.x),
                 next.y.rem_euclid(FLOW_FIELD_SIZE.y),
             );
+            *tumble_time += (velocity * dt).length();
         }
     }
 
-    fn render(&self, bitmap: &mut Bitmap, time: f32, settings: Settings, view: Mat4) {
+    fn render(&self, bitmap: &mut Bitmap, settings: Settings, view: Mat4) {
         bitmap.fill(settings.background);
 
         let offset = FLOW_FIELD_SIZE * 0.5;
@@ -184,7 +187,7 @@ impl Scene {
             .map(|p| { let p = *p - offset; Vec3::new(p.x, 0.0, p.y) })
             .collect();
         let projected = project_cloud(bitmap, &positions, projection(bitmap.resolution()), view);
-        let rotated_normals = rotate_normals(&self.normals, tumble_rotation(time, settings.glitter));
+        let rotated_normals = rotate_normals(&self.normals, &self.tumble_times, settings.glitter);
         let vdir = view_direction(view);
         let colors = glitter_colors(&self.flow_colors, &rotated_normals, vdir, settings.glitter);
         settings.depth_field.render(bitmap, &projected, &colors);
@@ -330,7 +333,7 @@ impl eframe::App for TweakApp {
                 });
             });
 
-        self.scene.render(&mut self.bitmap, self.time, self.settings, self.camera.view());
+        self.scene.render(&mut self.bitmap, self.settings, self.camera.view());
 
         let image = egui::ColorImage::from_rgba_unmultiplied(
             [self.bitmap.width() as usize, self.bitmap.height() as usize],
