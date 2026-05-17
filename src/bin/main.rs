@@ -14,8 +14,10 @@ use particles::{
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
     field::Field,
+    glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
     projection::project_cloud,
     resolution::Resolution,
+    rng::Rng,
     vec3_fmt::DatVec3,
 };
 
@@ -91,6 +93,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         .ok_or("colors missing from fields.npz")?
         .data.chunks(3).map(|c| Color::new(c[0], c[1], c[2])).collect();
 
+    let glitter = Glitter {
+        falloff_power: 14.0,
+        axis0_speed: 2.0,
+        axis0: Vec3::new(0.4, 1.0, 0.3).normalize(),
+        axis1: Vec3::new(0.2, 0.4, 1.0).normalize(),
+        axis1_speed: 1.5,
+    };
+    let vdir = view_direction(view);
+    let mut rng = Rng::new(0x1234_5678);
+    let normals = glitter_normals(&mut rng, positions.len());
+    let mut tumble_times = vec![0.0f32; positions.len()];
+
     let density: Field<Color> = {
         let den = npz.get("density").ok_or("density missing from fields.npz")?;
         let h = den.shape[0] as u32;
@@ -103,19 +117,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     for _ in 0..frame_count {
-        for position in &mut positions {
-            let next = *position + field.interpolate(*position) * dt;
+        for (position, tumble_time) in positions.iter_mut().zip(&mut tumble_times) {
+            let velocity = field.interpolate(*position);
+            let next = *position + velocity * dt;
             *position = Vec2::new(next.x.rem_euclid(size.x), next.y.rem_euclid(size.y));
+            *tumble_time += (velocity * dt).length();
         }
         let offset = size * 0.5;
         let cloud: Vec<Vec3> = positions.iter()
             .map(|p| { let p = *p - offset; Vec3::new(p.x, 0.0, p.y) })
             .collect();
 
+        let rotated = rotate_normals(&normals, &tumble_times, glitter);
+        let render_colors = glitter_colors(&colors, &rotated, vdir, glitter);
+
         bitmap.fill(background);
         draw_texture(&mut bitmap, &density, projection, view);
         let projected = project_cloud(&bitmap, &cloud, projection, view);
-        depth_field.render(&mut bitmap, &projected, &colors);
+        depth_field.render(&mut bitmap, &projected, &render_colors);
         output.write_all(bitmap.data())?;
         output.flush()?;
     }
