@@ -436,6 +436,17 @@ fn save_fields(path: &str, scene: &Scene) {
         .collect();
     npz.add("density", &[h, w, 3], &density);
 
+    let n = scene.flow_positions.len();
+    let positions: Vec<f32> = scene.flow_positions.iter()
+        .flat_map(|p| [p.x, p.y])
+        .collect();
+    npz.add("positions", &[n, 2], &positions);
+
+    let colors: Vec<f32> = scene.flow_colors.iter()
+        .flat_map(|c| [c.red, c.green, c.blue])
+        .collect();
+    npz.add("colors", &[n, 3], &colors);
+
     if let Err(e) = npz.write(path) {
         eprintln!("Failed to save {path}: {e}");
     }
