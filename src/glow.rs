@@ -16,7 +16,7 @@ fn smoothstep(edge0: f32, edge1: f32, x: f32) -> f32 {
 fn draw_glow(bitmap: &mut Bitmap, center: Vec2, color: Color, glow: Glow) {
     let width = bitmap.width() as i32;
     let height = bitmap.height() as i32;
-    let radius = glow.radius;
+    let radius = glow.radius * bitmap.height() as f32;
     let min_x = (center.x - radius).floor().max(0.0) as i32;
     let max_x = (center.x + radius).ceil().min((width - 1) as f32) as i32;
     let min_y = (center.y - radius).floor().max(0.0) as i32;

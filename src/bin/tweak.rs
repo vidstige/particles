@@ -4,6 +4,7 @@ use particles::{
     bitmap::Bitmap,
     color::{Color, Rgba8},
     data::Dat,
+    downscaled::Downscaled,
     texture::draw_texture,
     npy::Npz,
     vec3_fmt::DatVec3,
@@ -13,6 +14,7 @@ use particles::{
     fluid::{advect, advect_scalar, project_incompressible},
     glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
     glitter_io::{load_glitter, save_glitter},
+    glow::Glow,
     projection::project_cloud,
     render::Render,
     resolution::Resolution,
@@ -99,6 +101,9 @@ struct Settings {
     background: Rgba8,
     depth_field: DepthField,
     glitter: Glitter,
+    glow: Glow,
+    glow_scale: u32,
+    glow_subsample: usize,
 }
 
 impl Settings {
@@ -117,6 +122,9 @@ impl Settings {
                 axis1: Vec3::new(0.2, 0.4, 1.0).normalize(),
                 axis1_speed: GLITTER_AXIS1_SPEED,
             },
+            glow: Glow { softener: 0.5, radius: 0.03 },
+            glow_scale: 4,
+            glow_subsample: 8,
         }
     }
 
@@ -188,6 +196,15 @@ impl Scene {
             .map(|p| { let p = *p - offset; Vec3::new(p.x, 0.0, p.y) })
             .collect();
         let projected = project_cloud(bitmap, &positions, projection(bitmap.resolution()), view);
+
+        let glow_positions: Vec<Option<Vec3>> = projected
+            .iter()
+            .enumerate()
+            .map(|(i, &p)| if i % settings.glow_subsample == 0 { p } else { None })
+            .collect();
+        let bloom = Downscaled { inner: settings.glow, scale: settings.glow_scale };
+        bloom.render(bitmap, &glow_positions, &self.flow_colors);
+
         let rotated_normals = rotate_normals(&self.normals, &self.tumble_times, settings.glitter);
         let vdir = view_direction(view);
         let colors = glitter_colors(&self.flow_colors, &rotated_normals, vdir, settings.glitter);
@@ -318,6 +335,27 @@ impl eframe::App for TweakApp {
                 {
                     self.settings.set_glitter_speed(glitter_speed);
                 }
+
+                ui.separator();
+                ui.heading("Glow");
+                ui.horizontal(|ui| {
+                    ui.label("Scale");
+                    for scale in [2u32, 4, 8, 16] {
+                        ui.radio_value(&mut self.settings.glow_scale, scale, format!("{scale}×"));
+                    }
+                });
+                ui.add(
+                    egui::Slider::new(&mut self.settings.glow_subsample, 1..=64)
+                        .text("Subsample"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut self.settings.glow.softener, 0.0..=2.0)
+                        .text("Strength"),
+                );
+                ui.add(
+                    egui::Slider::new(&mut self.settings.glow.radius, 0.005..=0.5)
+                        .text("Radius"),
+                );
 
                 ui.separator();
                 ui.horizontal(|ui| {
