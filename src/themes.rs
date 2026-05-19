@@ -65,11 +65,11 @@ impl Sample for Cosmos {
             (0.25, Color::from_hex("#0D1627")), //   |
             (0.40, Color::from_hex("#1F2051")), // dark blue bg
             (0.43, Color::from_hex("#1F2051")), //   |
-            (0.50, Color::from_hex("#8D619E")), //   bar: purple
+            (0.50, Color::from_hex("#a771bd")), //   bar: purple
             (0.57, Color::from_hex("#1F2051")), //   |
             (0.71, Color::from_hex("#0D1627")), // dark bg
             (0.73, Color::from_hex("#0D1627")), //   |
-            (0.80, Color::from_hex("#7B5970")), //   bar: pink-purple
+            (0.80, Color::from_hex("#c63498")), //   bar: pink-purple
             (0.87, Color::from_hex("#0D1627")), //   |
             (1.00, Color::from_hex("#0D1627")), // dark end
         ], t)
