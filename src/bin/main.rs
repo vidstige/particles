@@ -12,7 +12,7 @@ use particles::{
     depth_field::DepthField,
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
-    field::Field,
+    fluid::{advect, advect_scalar, flow_field_from_bezier, project_incompressible},
     glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
     glitter_io::load_glitter,
     projection::project_cloud,
@@ -26,39 +26,22 @@ const PARTICLE_COUNT: usize = 32 * 1024;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
 const FLOW_FIELD_SIZE: Vec2 = Vec2::new(8.0, 8.0);
 
-fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
-    let p0 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
-    let p1 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
-    let p2 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
-
-    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
-    let radius = 2.0_f32;
-    let steps = 400;
-
-    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
-        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
-            let pos = field.sample(x, y);
-            let mut best_dist = f32::MAX;
-            let mut best_tangent = Vec2::ZERO;
-            for i in 0..=steps {
-                let t = i as f32 / steps as f32;
-                let mt = 1.0 - t;
-                let curve_pos = p0 * (mt * mt) + p1 * (2.0 * mt * t) + p2 * (t * t);
-                let dist = (pos - curve_pos).length();
-                if dist < best_dist {
-                    best_dist = dist;
-                    best_tangent = ((p1 - p0) * (2.0 * mt) + (p2 - p1) * (2.0 * t)).normalize_or_zero();
-                }
-            }
-            if best_dist < radius {
-                field.set(x, y, best_tangent);
-            }
+fn parse_args() -> (String, f32, f32) {
+    let args: Vec<String> = std::env::args().collect();
+    let mut dat_path = "tweaks.dat".to_string();
+    let mut warmup = 0.0f32;
+    let mut duration = 30.0f32;
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--time" => { i += 1; if i < args.len() { warmup = args[i].parse().unwrap_or(warmup); } }
+            "--duration" => { i += 1; if i < args.len() { duration = args[i].parse().unwrap_or(duration); } }
+            _ => dat_path = args[i].clone(),
         }
+        i += 1;
     }
-    field
+    (dat_path, warmup, duration)
 }
-
-const DURATION: f32 = 24.0;
 
 fn camera_eye() -> Vec3 {
     Vec3::new(0.0, 2.35, 2.2)
@@ -83,9 +66,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let resolution = resolution()?;
     let mut bitmap = Bitmap::new(resolution);
     let projection = projection(bitmap.resolution());
-    let frame_count = (DURATION * fps) as usize;
 
-    let dat_path = std::env::args().nth(1).unwrap_or_else(|| "tweaks.dat".to_string());
+    let (dat_path, warmup, duration) = parse_args();
     let dat = Dat::read(&dat_path).ok();
 
     let eye = dat.as_ref()
@@ -110,8 +92,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     let size = FLOW_FIELD_SIZE;
     let mut rng = Rng::new(0x1234_5678);
     let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
-    let field = flow_field_from_bezier(&mut rng);
-    let density = themes::sample_at_resolution(Cosmos, FLOW_FIELD_RESOLUTION, size);
+    let mut field = flow_field_from_bezier(&mut rng, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
+    let mut density = themes::sample_at_resolution(Cosmos, FLOW_FIELD_RESOLUTION, size);
     let mut positions: Vec<Vec2> = (0..PARTICLE_COUNT)
         .map(|_| Vec2::new(rng.next_f32_in(0.0, size.x), rng.next_f32_in(0.0, size.y)))
         .collect();
@@ -133,7 +115,24 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
     let vdir = view_direction(view);
 
+    let warmup_steps = (warmup * fps) as usize;
+    for _ in 0..warmup_steps {
+        field = advect(&field, dt);
+        project_incompressible(&mut field, 20);
+        density = advect_scalar(&density, &field, dt);
+        for (position, tumble_time) in positions.iter_mut().zip(&mut tumble_times) {
+            let velocity = field.interpolate(*position);
+            let next = *position + velocity * dt;
+            *position = Vec2::new(next.x.rem_euclid(size.x), next.y.rem_euclid(size.y));
+            *tumble_time += (velocity * dt).length();
+        }
+    }
+
+    let frame_count = (duration * fps) as usize;
     for _ in 0..frame_count {
+        field = advect(&field, dt);
+        project_incompressible(&mut field, 20);
+        density = advect_scalar(&density, &field, dt);
         for (position, tumble_time) in positions.iter_mut().zip(&mut tumble_times) {
             let velocity = field.interpolate(*position);
             let next = *position + velocity * dt;

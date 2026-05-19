@@ -10,7 +10,7 @@ use particles::{
     depth_field::DepthField,
     env::DEFAULT_RESOLUTION,
     field::Field,
-    fluid::{advect, advect_scalar, project_incompressible},
+    fluid::{advect, advect_scalar, flow_field_from_bezier, project_incompressible},
     glitter::{glitter_colors, glitter_normals, rotate_normals, view_direction, Glitter},
     glitter_io::{load_glitter, save_glitter},
     glow::Glow,
@@ -40,37 +40,6 @@ fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
 }
 
 
-fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
-    let p0 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
-    let p1 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
-    let p2 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
-
-    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
-    let radius = 2.0_f32;
-    let steps = 400;
-
-    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
-        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
-            let pos = field.sample(x, y);
-            let mut best_dist = f32::MAX;
-            let mut best_tangent = Vec2::ZERO;
-            for i in 0..=steps {
-                let t = i as f32 / steps as f32;
-                let mt = 1.0 - t;
-                let curve_pos = p0 * (mt * mt) + p1 * (2.0 * mt * t) + p2 * (t * t);
-                let dist = (pos - curve_pos).length();
-                if dist < best_dist {
-                    best_dist = dist;
-                    best_tangent = ((p1 - p0) * (2.0 * mt) + (p2 - p1) * (2.0 * t)).normalize_or_zero();
-                }
-            }
-            if best_dist < radius {
-                field.set(x, y, best_tangent);
-            }
-        }
-    }
-    field
-}
 
 fn flow_field_from_simplex() -> Field<Vec2> {
     let width = FLOW_FIELD_RESOLUTION.width as usize;
@@ -151,7 +120,7 @@ impl Scene {
     fn new() -> Self {
         let mut rng = Rng::new(0x1234_5678);
         let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
-        let flow_field = flow_field_from_bezier(&mut rng);
+        let flow_field = flow_field_from_bezier(&mut rng, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
         let density = themes::sample_at_resolution(Cosmos, FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE);
         let flow_positions: Vec<Vec2> = (0..PARTICLE_COUNT)
             .map(|_| Vec2::new(
