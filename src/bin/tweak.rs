@@ -6,7 +6,6 @@ use particles::{
     data::Dat,
     downscaled::Downscaled,
     texture::draw_texture,
-    npy::Npz,
     vec3_fmt::DatVec3,
     depth_field::DepthField,
     env::DEFAULT_RESOLUTION,
@@ -66,7 +65,7 @@ fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
                 }
             }
             if best_dist < radius {
-                field.set(x, y, 0.5 * best_tangent);
+                field.set(x, y, best_tangent);
             }
         }
     }
@@ -272,7 +271,6 @@ struct TweakApp {
     playing: bool,
     last_ui_time: Option<f64>,
     save_path: String,
-    fields_path: String,
 }
 
 impl eframe::App for TweakApp {
@@ -364,12 +362,6 @@ impl eframe::App for TweakApp {
                         save_tweaks(&self.save_path, &self.camera, &self.settings, self.time);
                     }
                 });
-                ui.horizontal(|ui| {
-                    ui.text_edit_singleline(&mut self.fields_path);
-                    if ui.button("Save fields").clicked() {
-                        save_fields(&self.fields_path, &self.scene);
-                    }
-                });
             });
 
         self.scene.render(&mut self.bitmap, self.settings, self.camera.view());
@@ -432,40 +424,6 @@ impl eframe::App for TweakApp {
     }
 }
 
-fn save_fields(path: &str, scene: &Scene) {
-    let mut npz = Npz::new();
-
-    let w = scene.flow_field.width();
-    let h = scene.flow_field.height();
-    let velocity: Vec<f32> = scene.flow_field.values.iter()
-        .flat_map(|v| [v.x, v.y])
-        .collect();
-    npz.add("velocity", &[h, w, 2], &velocity);
-    let size = scene.flow_field.size();
-    npz.add("world_size", &[2], &[size.x, size.y]);
-
-    let w = scene.density.width();
-    let h = scene.density.height();
-    let density: Vec<f32> = scene.density.values.iter()
-        .flat_map(|c| [c.red, c.green, c.blue])
-        .collect();
-    npz.add("density", &[h, w, 3], &density);
-
-    let n = scene.flow_positions.len();
-    let positions: Vec<f32> = scene.flow_positions.iter()
-        .flat_map(|p| [p.x, p.y])
-        .collect();
-    npz.add("positions", &[n, 2], &positions);
-
-    let colors: Vec<f32> = scene.flow_colors.iter()
-        .flat_map(|c| [c.red, c.green, c.blue])
-        .collect();
-    npz.add("colors", &[n, 3], &colors);
-
-    if let Err(e) = npz.write(path) {
-        eprintln!("Failed to save {path}: {e}");
-    }
-}
 
 fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
     let mut dat = Dat::new();
@@ -521,7 +479,6 @@ fn main() -> eframe::Result {
                 playing: true,
                 last_ui_time: None,
                 save_path: "tweaks.dat".to_string(),
-                fields_path: "fields.npz".to_string(),
             }))
         }),
     )

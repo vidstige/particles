@@ -9,7 +9,6 @@ use particles::{
     color::{Color, Rgba8},
     data::Dat,
     texture::draw_texture,
-    npy::read_npz,
     depth_field::DepthField,
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
@@ -19,8 +18,45 @@ use particles::{
     projection::project_cloud,
     resolution::Resolution,
     rng::Rng,
+    themes::{self, Cosmos, Sample},
     vec3_fmt::DatVec3,
 };
+
+const PARTICLE_COUNT: usize = 32 * 1024;
+const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
+const FLOW_FIELD_SIZE: Vec2 = Vec2::new(8.0, 8.0);
+
+fn flow_field_from_bezier(rng: &mut Rng) -> Field<Vec2> {
+    let p0 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
+    let p1 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
+    let p2 = Vec2::new(rng.next_f32_in(0.0, FLOW_FIELD_SIZE.x), rng.next_f32_in(0.0, FLOW_FIELD_SIZE.y));
+
+    let mut field = Field::new(FLOW_FIELD_RESOLUTION, FLOW_FIELD_SIZE, Vec2::ZERO);
+    let radius = 2.0_f32;
+    let steps = 400;
+
+    for y in 0..FLOW_FIELD_RESOLUTION.height as usize {
+        for x in 0..FLOW_FIELD_RESOLUTION.width as usize {
+            let pos = field.sample(x, y);
+            let mut best_dist = f32::MAX;
+            let mut best_tangent = Vec2::ZERO;
+            for i in 0..=steps {
+                let t = i as f32 / steps as f32;
+                let mt = 1.0 - t;
+                let curve_pos = p0 * (mt * mt) + p1 * (2.0 * mt * t) + p2 * (t * t);
+                let dist = (pos - curve_pos).length();
+                if dist < best_dist {
+                    best_dist = dist;
+                    best_tangent = ((p1 - p0) * (2.0 * mt) + (p2 - p1) * (2.0 * t)).normalize_or_zero();
+                }
+            }
+            if best_dist < radius {
+                field.set(x, y, best_tangent);
+            }
+        }
+    }
+    field
+}
 
 const DURATION: f32 = 24.0;
 
@@ -71,28 +107,19 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(v) = d.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { depth_field.particle_radius = v; }
     }
 
-    let fields_path = std::env::args().nth(2).unwrap_or_else(|| "fields.npz".to_string());
-    let npz = read_npz(&fields_path)?;
-
-    let ws = npz.get("world_size").ok_or("world_size missing from fields.npz")?;
-    let size = Vec2::new(ws.data[0], ws.data[1]);
-
-    let vel = npz.get("velocity").ok_or("velocity missing from fields.npz")?;
-    let h = vel.shape[0] as u32;
-    let w = vel.shape[1] as u32;
-    let mut field = Field::new(Resolution::new(w, h), size, Vec2::ZERO);
-    for (v, chunk) in field.values.iter_mut().zip(vel.data.chunks(2)) {
-        *v = Vec2::new(chunk[0], chunk[1]);
-    }
-
-    let mut positions: Vec<Vec2> = npz.get("positions")
-        .ok_or("positions missing from fields.npz")?
-        .data.chunks(2).map(|c| Vec2::new(c[0], c[1])).collect();
-
+    let size = FLOW_FIELD_SIZE;
+    let mut rng = Rng::new(0x1234_5678);
+    let normals = glitter_normals(&mut rng, PARTICLE_COUNT);
+    let field = flow_field_from_bezier(&mut rng);
+    let density = themes::sample_at_resolution(Cosmos, FLOW_FIELD_RESOLUTION, size);
+    let mut positions: Vec<Vec2> = (0..PARTICLE_COUNT)
+        .map(|_| Vec2::new(rng.next_f32_in(0.0, size.x), rng.next_f32_in(0.0, size.y)))
+        .collect();
     let background = Rgba8::from_rgb(10, 12, 18);
-    let colors: Vec<Color> = npz.get("colors")
-        .ok_or("colors missing from fields.npz")?
-        .data.chunks(3).map(|c| Color::new(c[0], c[1], c[2])).collect();
+    let colors: Vec<Color> = positions.iter()
+        .map(|p| Cosmos.sample(*p / size))
+        .collect();
+    let mut tumble_times = vec![0.0f32; PARTICLE_COUNT];
 
     let glitter = {
         let default = Glitter {
@@ -105,20 +132,6 @@ fn main() -> Result<(), Box<dyn Error>> {
         dat.as_ref().map_or(default, |d| load_glitter(d, default))
     };
     let vdir = view_direction(view);
-    let mut rng = Rng::new(0x1234_5678);
-    let normals = glitter_normals(&mut rng, positions.len());
-    let mut tumble_times = vec![0.0f32; positions.len()];
-
-    let density: Field<Color> = {
-        let den = npz.get("density").ok_or("density missing from fields.npz")?;
-        let h = den.shape[0] as u32;
-        let w = den.shape[1] as u32;
-        let mut f = Field::new(Resolution::new(w, h), size, Color::BLACK);
-        for (c, chunk) in f.values.iter_mut().zip(den.data.chunks(3)) {
-            *c = Color::new(chunk[0], chunk[1], chunk[2]);
-        }
-        f
-    };
 
     for _ in 0..frame_count {
         for (position, tumble_time) in positions.iter_mut().zip(&mut tumble_times) {
