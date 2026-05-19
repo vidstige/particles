@@ -10,6 +10,8 @@ use particles::{
     data::Dat,
     texture::draw_texture,
     depth_field::DepthField,
+    downscaled::Downscaled,
+    glow::Glow,
     render::Render,
     env::{fps, resolution, DEFAULT_RESOLUTION},
     fluid::{advect, advect_scalar, flow_field_from_bezier, project_incompressible},
@@ -83,10 +85,17 @@ fn main() -> Result<(), Box<dyn Error>> {
     let view = Mat4::look_at_rh(eye, target, Vec3::Y);
 
     let mut depth_field = default_depth_field(bitmap.resolution());
+    let mut glow = Glow { softener: 0.5, radius: 0.03 };
+    let mut glow_scale: u32 = 4;
+    let mut glow_subsample: usize = 8;
     if let Some(d) = &dat {
         if let Some(v) = d.get("depth_field", "focus_depth").and_then(|s| s.parse().ok()) { depth_field.focus_depth = v; }
         if let Some(v) = d.get("depth_field", "blur").and_then(|s| s.parse().ok()) { depth_field.blur = v; }
         if let Some(v) = d.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { depth_field.particle_radius = v; }
+        if let Some(v) = d.get("glow", "softener").and_then(|s| s.parse().ok()) { glow.softener = v; }
+        if let Some(v) = d.get("glow", "radius").and_then(|s| s.parse().ok()) { glow.radius = v; }
+        if let Some(v) = d.get("glow", "scale").and_then(|s| s.parse().ok()) { glow_scale = v; }
+        if let Some(v) = d.get("glow", "subsample").and_then(|s| s.parse().ok()) { glow_subsample = v; }
     }
 
     let size = FLOW_FIELD_SIZE;
@@ -150,6 +159,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         bitmap.fill(background);
         draw_texture(&mut bitmap, &density, projection, view);
         let projected = project_cloud(&bitmap, &cloud, projection, view);
+        let glow_positions: Vec<_> = projected.iter().enumerate()
+            .map(|(i, &p)| if i % glow_subsample == 0 { p } else { None })
+            .collect();
+        Downscaled { inner: glow, scale: glow_scale }.render(&mut bitmap, &glow_positions, &colors);
         depth_field.render(&mut bitmap, &projected, &render_colors);
         output.write_all(bitmap.data())?;
         output.flush()?;
