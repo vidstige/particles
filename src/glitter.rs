@@ -26,19 +26,6 @@ fn glitter_amount(normal: Vec3, view_direction: Vec3, glitter: Glitter) -> f32 {
         .powf(glitter.falloff_power)
 }
 
-fn lerp(left: f32, right: f32, t: f32) -> f32 {
-    left * (1.0 - t) + right * t
-}
-
-fn lerp_color(left: Color, right: Color, t: f32) -> Color {
-    let t = t.clamp(0.0, 1.0);
-    Color::new(
-        lerp(left.red, right.red, t),
-        lerp(left.green, right.green, t),
-        lerp(left.blue, right.blue, t),
-    )
-}
-
 pub fn view_direction(view: Mat4) -> Vec3 {
     view.inverse().transform_vector3(-Vec3::Z).normalize()
 }
@@ -69,11 +56,10 @@ pub fn glitter_colors(
     view_direction: Vec3,
     glitter: Glitter,
 ) -> Vec<Color> {
-    let tint = Color::new(4.0, 4.0, 4.0);
     base_colors
         .iter()
         .zip(normals)
-        .map(|(&base, normal)| lerp_color(base, tint, glitter_amount(*normal, view_direction, glitter)))
+        .map(|(&base, normal)| base * (1.0 + glitter_amount(*normal, view_direction, glitter) * 3.0))
         .collect()
 }
 
@@ -109,7 +95,7 @@ mod tests {
 
         let colors = glitter_colors(&vec![base_color; normals.len()], &normals, view_direction, glitter);
 
-        assert_eq!(colors[0], Color::new(4.0, 4.0, 4.0));
+        assert_eq!(colors[0], base_color * 4.0);
         assert_eq!(colors[1], base_color);
         assert_eq!(colors[2], base_color);
     }
@@ -197,7 +183,7 @@ mod tests {
             glitter,
         );
 
-        assert_eq!(colors_at_start[0], Color::new(4.0, 4.0, 4.0));
+        assert_eq!(colors_at_start[0], base_color * 4.0);
         assert_eq!(colors_quarter_turn[0], base_color);
     }
 

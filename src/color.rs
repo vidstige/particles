@@ -57,6 +57,10 @@ impl Color {
         )
     }
 
+    pub fn magnitude(&self) -> f32 {
+        self.red.max(self.green).max(self.blue)
+    }
+
     pub fn to_rgba8(self, alpha: f32) -> Rgba8 {
         let alpha = alpha.clamp(0.0, 1.0);
         Rgba8::new(

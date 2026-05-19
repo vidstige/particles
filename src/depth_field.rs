@@ -34,7 +34,8 @@ fn render_cloud(
         let focal_distance = (particle.z - depth_field.focus_depth).abs();
         let radius = depth_field.particle_radius + depth_field.blur * focal_distance;
         let alpha = circle_area(depth_field.particle_radius) / circle_area(radius);
-        draw_disk(target, particle.truncate(), radius, color.to_rgba8(alpha));
+        let overflow = color.magnitude().max(1.0);
+        draw_disk(target, particle.truncate(), radius, color.to_rgba8(alpha * overflow));
     }
 }
 
