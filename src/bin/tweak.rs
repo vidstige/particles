@@ -408,6 +408,10 @@ fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
     dat.set("depth_field", "blur", &format!("{:.4}", settings.depth_field.blur));
     dat.set("depth_field", "particle_radius", &format!("{:.4}", settings.depth_field.particle_radius));
     save_glitter(&mut dat, settings.glitter);
+    dat.set("glow", "softener", &format!("{:.4}", settings.glow.softener));
+    dat.set("glow", "radius", &format!("{:.4}", settings.glow.radius));
+    dat.set("glow", "scale", &format!("{}", settings.glow_scale));
+    dat.set("glow", "subsample", &format!("{}", settings.glow_subsample));
     if let Err(e) = dat.write(path) {
         eprintln!("Failed to save {path}: {e}");
     }
@@ -437,6 +441,10 @@ fn main() -> eframe::Result {
                 if let Some(v) = dat.get("depth_field", "blur").and_then(|s| s.parse().ok()) { settings.depth_field.blur = v; }
                 if let Some(v) = dat.get("depth_field", "particle_radius").and_then(|s| s.parse().ok()) { settings.depth_field.particle_radius = v; }
                 settings.glitter = load_glitter(&dat, settings.glitter);
+                if let Some(v) = dat.get("glow", "softener").and_then(|s| s.parse().ok()) { settings.glow.softener = v; }
+                if let Some(v) = dat.get("glow", "radius").and_then(|s| s.parse().ok()) { settings.glow.radius = v; }
+                if let Some(v) = dat.get("glow", "scale").and_then(|s| s.parse().ok()) { settings.glow_scale = v; }
+                if let Some(v) = dat.get("glow", "subsample").and_then(|s| s.parse().ok()) { settings.glow_subsample = v; }
             }
             Ok(Box::new(TweakApp {
                 scene: Scene::new(),
