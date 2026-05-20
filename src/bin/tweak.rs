@@ -261,6 +261,9 @@ impl eframe::App for TweakApp {
                         ctx.request_repaint();
                     }
                 }
+                if ui.button("Reset").clicked() {
+                    self.scene = Scene::new();
+                }
 
             });
         });
