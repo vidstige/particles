@@ -23,16 +23,11 @@ use particles::{
     themes::{self, Cosmos, Sample},
 };
 
-const DURATION: f32 = 24.0;
 const PARTICLE_COUNT: usize = 32 * 1024;
 const GLITTER_AXIS0_SPEED: f32 = 2.0;
 const GLITTER_AXIS1_SPEED: f32 = 1.5;
 const FLOW_FIELD_RESOLUTION: Resolution = Resolution::new(128, 128);
 const FLOW_FIELD_SIZE: Vec2 = Vec2::new(8.0, 8.0);
-
-fn format_time(seconds: f32) -> String {
-    format!("{seconds:05.2}s")
-}
 
 fn image_size(bitmap: &Bitmap, available: egui::Vec2) -> egui::Vec2 {
     let size = egui::Vec2::new(bitmap.width() as f32, bitmap.height() as f32);
@@ -239,7 +234,6 @@ struct TweakApp {
     bitmap: Bitmap,
     texture: Option<TextureHandle>,
     camera: Camera,
-    time: f32,
     playing: bool,
     last_ui_time: Option<f64>,
     save_path: String,
@@ -251,7 +245,6 @@ impl eframe::App for TweakApp {
         if let Some(last_ui_time) = self.last_ui_time {
             if self.playing {
                 let dt = (now - last_ui_time) as f32;
-                self.time = (self.time + dt).rem_euclid(DURATION);
                 self.scene.advance(dt, self.settings.projection_iterations);
                 ctx.request_repaint();
             }
@@ -268,12 +261,7 @@ impl eframe::App for TweakApp {
                         ctx.request_repaint();
                     }
                 }
-                ui.add(
-                    egui::Slider::new(&mut self.time, 0.0..=DURATION)
-                        .show_value(false)
-                        .clamping(egui::SliderClamping::Always),
-                );
-                ui.label(format!("{} / {}", format_time(self.time), format_time(DURATION)));
+
             });
         });
 
@@ -338,7 +326,7 @@ impl eframe::App for TweakApp {
                 ui.horizontal(|ui| {
                     ui.text_edit_singleline(&mut self.save_path);
                     if ui.button("Save").clicked() {
-                        save_tweaks(&self.save_path, &self.camera, &self.settings, self.time);
+                        save_tweaks(&self.save_path, &self.camera, &self.settings);
                     }
                 });
             });
@@ -404,7 +392,7 @@ impl eframe::App for TweakApp {
 }
 
 
-fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
+fn save_tweaks(path: &str, camera: &Camera, settings: &Settings) {
     let mut dat = Dat::new();
     dat.set("camera", "eye", &DatVec3(camera.eye()).to_string());
     dat.set("camera", "target", &DatVec3(camera.target).to_string());
@@ -464,7 +452,6 @@ fn main() -> eframe::Result {
                 bitmap: Bitmap::new(resolution),
                 texture: None,
                 camera,
-                time: 0.0,
                 playing: true,
                 last_ui_time: None,
                 save_path: "tweaks.dat".to_string(),
