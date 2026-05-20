@@ -12,6 +12,7 @@ pub mod distribution;
 pub mod downscaled;
 pub mod env;
 pub mod field;
+pub mod fields;
 pub mod fluid;
 pub mod gerstner;
 pub mod glow;
