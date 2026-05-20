@@ -73,6 +73,7 @@ struct Settings {
     glow: Glow,
     glow_scale: u32,
     glow_subsample: usize,
+    projection_iterations: usize,
 }
 
 impl Settings {
@@ -94,6 +95,7 @@ impl Settings {
             glow: Glow { softener: 0.5, radius: 0.03 },
             glow_scale: 4,
             glow_subsample: 8,
+            projection_iterations: 20,
         }
     }
 
@@ -137,9 +139,9 @@ impl Scene {
         Self { normals, tumble_times: vec![0.0; PARTICLE_COUNT], flow_field, density, flow_positions, flow_colors }
     }
 
-    fn advance(&mut self, dt: f32) {
+    fn advance(&mut self, dt: f32, projection_iterations: usize) {
         self.flow_field = advect(&self.flow_field, dt);
-        project_incompressible(&mut self.flow_field, 20);
+        project_incompressible(&mut self.flow_field, projection_iterations);
         self.density = advect_scalar(&self.density, &self.flow_field, dt);
         for (position, tumble_time) in self.flow_positions.iter_mut().zip(&mut self.tumble_times) {
             let velocity = self.flow_field.interpolate(*position);
@@ -250,7 +252,7 @@ impl eframe::App for TweakApp {
             if self.playing {
                 let dt = (now - last_ui_time) as f32;
                 self.time = (self.time + dt).rem_euclid(DURATION);
-                self.scene.advance(dt);
+                self.scene.advance(dt, self.settings.projection_iterations);
                 ctx.request_repaint();
             }
         }
@@ -323,6 +325,13 @@ impl eframe::App for TweakApp {
                 ui.add(
                     egui::Slider::new(&mut self.settings.glow.radius, 0.005..=0.5)
                         .text("Radius"),
+                );
+
+                ui.separator();
+                ui.heading("Fluid");
+                ui.add(
+                    egui::Slider::new(&mut self.settings.projection_iterations, 1..=160)
+                        .text("Projection iters"),
                 );
 
                 ui.separator();
@@ -413,6 +422,7 @@ fn save_tweaks(path: &str, camera: &Camera, settings: &Settings, time: f32) {
     dat.set("glow", "radius", &format!("{:.4}", settings.glow.radius));
     dat.set("glow", "scale", &format!("{}", settings.glow_scale));
     dat.set("glow", "subsample", &format!("{}", settings.glow_subsample));
+    dat.set("fluid", "projection_iterations", &format!("{}", settings.projection_iterations));
     if let Err(e) = dat.write(path) {
         eprintln!("Failed to save {path}: {e}");
     }
@@ -446,6 +456,7 @@ fn main() -> eframe::Result {
                 if let Some(v) = dat.get("glow", "radius").and_then(|s| s.parse().ok()) { settings.glow.radius = v; }
                 if let Some(v) = dat.get("glow", "scale").and_then(|s| s.parse().ok()) { settings.glow_scale = v; }
                 if let Some(v) = dat.get("glow", "subsample").and_then(|s| s.parse().ok()) { settings.glow_subsample = v; }
+                if let Some(v) = dat.get("fluid", "projection_iterations").and_then(|s| s.parse().ok()) { settings.projection_iterations = v; }
             }
             Ok(Box::new(TweakApp {
                 scene: Scene::new(),
