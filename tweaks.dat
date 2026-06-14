@@ -1,0 +1,30 @@
+[camera]
+eye = (0.1343, 2.2659, 4.1427)
+target = (-0.0005, -0.5309, 1.1884)
+yaw = 1.5252
+pitch = 0.7575
+distance = 4.0704
+fov = 45.0000
+near = 0.1000
+far = 12.0000
+
+[depth_field]
+focus_depth = 3.5000
+blur = 4.1000
+particle_radius = 1.0000
+
+[glitter]
+falloff_power = 12.5000
+axis0_speed = 12.8000
+axis0 = (0.3578, 0.8944, 0.2683)
+axis1 = (0.1826, 0.3651, 0.9129)
+axis1_speed = 9.6000
+
+[glow]
+softener = 0.6000
+radius = 0.2050
+scale = 8
+subsample = 8
+
+[fluid]
+projection_iterations = 20
