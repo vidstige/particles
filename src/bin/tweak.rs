@@ -237,6 +237,8 @@ struct TweakApp {
     playing: bool,
     last_ui_time: Option<f64>,
     save_path: String,
+    sim_ms: f32,
+    render_ms: f32,
 }
 
 impl eframe::App for TweakApp {
@@ -245,7 +247,9 @@ impl eframe::App for TweakApp {
         if let Some(last_ui_time) = self.last_ui_time {
             if self.playing {
                 let dt = (now - last_ui_time) as f32;
+                let t0 = std::time::Instant::now();
                 self.scene.advance(dt, self.settings.projection_iterations);
+                self.sim_ms = t0.elapsed().as_secs_f32() * 1000.0;
                 ctx.request_repaint();
             }
         }
@@ -264,7 +268,9 @@ impl eframe::App for TweakApp {
                 if ui.button("Reset").clicked() {
                     self.scene = Scene::new();
                 }
-
+                ui.separator();
+                ui.label(format!("sim {:.1} ms", self.sim_ms));
+                ui.label(format!("render {:.1} ms", self.render_ms));
             });
         });
 
@@ -334,7 +340,9 @@ impl eframe::App for TweakApp {
                 });
             });
 
+        let t0 = std::time::Instant::now();
         self.scene.render(&mut self.bitmap, self.settings, self.camera.view());
+        self.render_ms = t0.elapsed().as_secs_f32() * 1000.0;
 
         let image = egui::ColorImage::from_rgba_unmultiplied(
             [self.bitmap.width() as usize, self.bitmap.height() as usize],
@@ -458,6 +466,8 @@ fn main() -> eframe::Result {
                 playing: true,
                 last_ui_time: None,
                 save_path: "tweaks.dat".to_string(),
+                sim_ms: 0.0,
+                render_ms: 0.0,
             }))
         }),
     )
